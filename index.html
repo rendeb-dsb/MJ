@@ -16,7 +16,7 @@
   .title-row { position:relative; min-height:58px; display:flex; align-items:center; justify-content:center; padding:8px 72px; }
   .screen-title { font-size:28px; font-weight:700; line-height:1.1; text-align:center; }
   .version { position:absolute; right:12px; top:50%; transform:translateY(-50%); font-size:9.5px; font-weight:400; white-space:nowrap; }
-  .main-menu { display:flex; width:100%; background:var(--menu-bg); overflow-x:auto; scrollbar-width:none; }
+  .main-menu { display:flex; width:100%; background:var(--menu-bg); overflow:visible; }
   .main-menu::-webkit-scrollbar { display:none; }
   .menu-wrap { position:relative; flex:1 0 25%; min-width:88px; }
   .menu-wrap .menu-item { width:100%; }
@@ -40,7 +40,7 @@
 <header class="app-header">
   <div class="title-row">
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
-    <div id="version" class="version">v2</div>
+    <div id="version" class="version">v3</div>
   </div>
   <nav class="main-menu" aria-label="Main menu">
     <div class="menu-wrap" id="actionsWrap">
