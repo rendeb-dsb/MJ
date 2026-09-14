@@ -1,19 +1,8 @@
-MJ - Version 1
+MJ PWA - Version 2
 
-First visual PWA version.
-
-Current interface:
-- Title: MJ - Stores, centered.
-- Version: v1, right justified, approximately one-third the title font size and not bold.
-- Main menu: File, Stores, Purchases, Usage.
-- Main header/menu remains visible while the page content scrolls.
-- Stores is the initial active screen.
-
-Stores table definition reserved for the next development step:
-StoreID (auto-generated hidden primary key, starts at 1)
-Name (text)
-Address1 (text)
-Address2 (text)
-City (text)
-State (2-character text)
-Zip (text)
+Changes in Version 2:
+- Renamed the File main menu item to Actions.
+- Actions opens a submenu containing Add, Change, Delete, Import, Export, and Quit with separator lines.
+- Selecting Actions does not change the active screen title.
+- The Actions submenu closes when another portion of the presentation is touched, or when an action is selected.
+- Main menu remains fixed/visible while content scrolls.

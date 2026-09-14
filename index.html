@@ -18,9 +18,16 @@
   .version { position:absolute; right:12px; top:50%; transform:translateY(-50%); font-size:9.5px; font-weight:400; white-space:nowrap; }
   .main-menu { display:flex; width:100%; background:var(--menu-bg); overflow-x:auto; scrollbar-width:none; }
   .main-menu::-webkit-scrollbar { display:none; }
+  .menu-wrap { position:relative; flex:1 0 25%; min-width:88px; }
+  .menu-wrap .menu-item { width:100%; }
   .menu-item { flex:1 0 25%; min-width:88px; border:0; border-right:1px solid rgba(255,255,255,.14); background:transparent; color:white; padding:10px 8px; font-size:15px; cursor:pointer; }
   .menu-item:hover, .menu-item:focus-visible { background:var(--menu-hover); outline:none; }
   .menu-item.active { background:#111827; font-weight:700; }
+  .submenu { display:none; position:absolute; left:0; top:100%; min-width:170px; background:white; border:1px solid var(--border); border-top:0; box-shadow:0 4px 10px rgba(0,0,0,.22); z-index:1100; }
+  .submenu.open { display:block; }
+  .submenu button { display:block; width:100%; border:0; background:white; color:var(--text); text-align:left; padding:11px 16px; font-size:15px; cursor:pointer; }
+  .submenu button:hover, .submenu button:focus-visible { background:#f3f4f6; outline:none; }
+  .separator { height:1px; background:var(--border); margin:3px 0; }
   main { padding:16px; }
   .content-card { background:white; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
   .content-heading { padding:12px 14px; border-bottom:1px solid var(--border); font-size:18px; font-weight:700; }
@@ -33,10 +40,22 @@
 <header class="app-header">
   <div class="title-row">
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
-    <div id="version" class="version">v1</div>
+    <div id="version" class="version">v2</div>
   </div>
   <nav class="main-menu" aria-label="Main menu">
-    <button class="menu-item" data-screen="File">File</button>
+    <div class="menu-wrap" id="actionsWrap">
+      <button class="menu-item" id="actionsButton" aria-haspopup="true" aria-expanded="false">Actions</button>
+      <div class="submenu" id="actionsMenu" role="menu" aria-label="Actions menu">
+        <button role="menuitem">Add</button>
+        <button role="menuitem">Change</button>
+        <button role="menuitem">Delete</button>
+        <div class="separator" role="separator"></div>
+        <button role="menuitem">Import</button>
+        <button role="menuitem">Export</button>
+        <div class="separator" role="separator"></div>
+        <button role="menuitem">Quit</button>
+      </div>
+    </div>
     <button class="menu-item active" data-screen="Stores">Stores</button>
     <button class="menu-item" data-screen="Purchases">Purchases</button>
     <button class="menu-item" data-screen="Usage">Usage</button>
@@ -50,17 +69,42 @@
   </section>
 </main>
 <script>
-  const buttons = document.querySelectorAll('.menu-item');
+  const buttons = document.querySelectorAll('.menu-item[data-screen]');
   const title = document.getElementById('screenTitle');
-  const appTitle = document.title;
+  const actionsButton = document.getElementById('actionsButton');
+  const actionsMenu = document.getElementById('actionsMenu');
+  const actionsWrap = document.getElementById('actionsWrap');
+
+  function closeActions() {
+    actionsMenu.classList.remove('open');
+    actionsButton.setAttribute('aria-expanded', 'false');
+  }
+
+  actionsButton.addEventListener('click', event => {
+    event.stopPropagation();
+    const open = actionsMenu.classList.toggle('open');
+    actionsButton.setAttribute('aria-expanded', String(open));
+  });
+
+  actionsMenu.addEventListener('click', event => {
+    event.stopPropagation();
+    if (event.target.matches('button')) closeActions();
+  });
+
+  document.addEventListener('click', event => {
+    if (!actionsWrap.contains(event.target)) closeActions();
+  });
+
   buttons.forEach(button => {
     button.addEventListener('click', () => {
+      closeActions();
       const screen = button.dataset.screen;
       buttons.forEach(b => b.classList.toggle('active', b === button));
       title.textContent = `MJ - ${screen}`;
       document.title = `MJ - ${screen}`;
     });
   });
+
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
   }
