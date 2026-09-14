@@ -1,0 +1,9 @@
+{
+  "name": "MJ",
+  "short_name": "MJ",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f9fafb",
+  "theme_color": "#1f2937",
+  "description": "MJ relational data application"
+}
