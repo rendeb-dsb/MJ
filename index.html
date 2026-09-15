@@ -17,7 +17,6 @@
   .screen-title { font-size:28px; font-weight:700; line-height:1.1; text-align:center; }
   .version { position:absolute; right:12px; top:50%; transform:translateY(-50%); font-size:9.5px; font-weight:400; white-space:nowrap; }
   .main-menu { display:flex; width:100%; background:var(--menu-bg); overflow:visible; }
-  .main-menu::-webkit-scrollbar { display:none; }
   .menu-wrap { position:relative; flex:1 0 25%; min-width:88px; }
   .menu-wrap .menu-item { width:100%; }
   .menu-item { flex:1 0 25%; min-width:88px; border:0; border-right:1px solid rgba(255,255,255,.14); background:transparent; color:white; padding:10px 8px; font-size:15px; cursor:pointer; }
@@ -33,6 +32,17 @@
   .content-heading { padding:12px 14px; border-bottom:1px solid var(--border); font-size:18px; font-weight:700; }
   .empty-message { padding:28px 16px; color:#6b7280; text-align:center; }
   .demo-space { height:1100px; padding:20px; color:#6b7280; }
+  .form-area { padding:18px 16px 24px; }
+  .form-title { font-size:18px; font-weight:700; margin:0 0 18px; }
+  .form-row { display:flex; align-items:center; margin:0 0 14px; min-height:40px; }
+  .form-label { flex:0 0 auto; font-size:16px; white-space:nowrap; }
+  .form-colon { margin-left:4px; margin-right:8px; }
+  .form-input { flex:1 1 auto; min-width:0; max-width:520px; height:38px; border:1px solid #9ca3af; border-radius:5px; padding:7px 9px; font-size:16px; background:white; }
+  .form-actions { display:flex; justify-content:center; gap:12px; margin-top:28px; padding-top:16px; border-top:1px solid var(--border); }
+  .form-button { min-width:100px; height:40px; border:1px solid #9ca3af; border-radius:5px; padding:0 18px; font-size:16px; cursor:pointer; background:#f3f4f6; color:var(--text); }
+  .form-button.save { cursor:not-allowed; opacity:.55; }
+  .form-button.cancel { background:white; }
+  .notice { padding:20px 16px; color:#6b7280; }
   @media (min-width:600px) { .screen-title { font-size:32px; } .version { font-size:11px; } }
 </style>
 </head>
@@ -40,13 +50,13 @@
 <header class="app-header">
   <div class="title-row">
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
-    <div id="version" class="version">v3</div>
+    <div id="version" class="version">v4</div>
   </div>
   <nav class="main-menu" aria-label="Main menu">
     <div class="menu-wrap" id="actionsWrap">
       <button class="menu-item" id="actionsButton" aria-haspopup="true" aria-expanded="false">Actions</button>
       <div class="submenu" id="actionsMenu" role="menu" aria-label="Actions menu">
-        <button role="menuitem">Add</button>
+        <button role="menuitem" data-action="add">Add</button>
         <button role="menuitem">Change</button>
         <button role="menuitem">Delete</button>
         <div class="separator" role="separator"></div>
@@ -61,23 +71,63 @@
     <button class="menu-item" data-screen="Usage">Usage</button>
   </nav>
 </header>
-<main>
-  <section class="content-card">
-    <div class="content-heading">Stores</div>
-    <div class="empty-message">No store records have been added yet.</div>
-    <div class="demo-space">Scrollable content area for the Stores list.</div>
-  </section>
-</main>
+<main id="mainContent"></main>
 <script>
   const buttons = document.querySelectorAll('.menu-item[data-screen]');
   const title = document.getElementById('screenTitle');
   const actionsButton = document.getElementById('actionsButton');
   const actionsMenu = document.getElementById('actionsMenu');
   const actionsWrap = document.getElementById('actionsWrap');
+  const mainContent = document.getElementById('mainContent');
+  let activeScreen = 'Stores';
 
   function closeActions() {
     actionsMenu.classList.remove('open');
     actionsButton.setAttribute('aria-expanded', 'false');
+  }
+
+  function displayList() {
+    mainContent.innerHTML = `
+      <section class="content-card">
+        <div class="content-heading">${activeScreen}</div>
+        <div class="empty-message">No ${activeScreen.toLowerCase()} records have been added yet.</div>
+        <div class="demo-space">Scrollable content area for the ${activeScreen} list.</div>
+      </section>`;
+  }
+
+  function displayAddForm() {
+    closeActions();
+    if (activeScreen === 'Stores') {
+      mainContent.innerHTML = `
+        <section class="content-card">
+          <div class="form-area">
+            <h2 class="form-title">Stores</h2>
+            <div class="form-row"><span class="form-label">Name</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="Name"></div>
+            <div class="form-row"><span class="form-label">Address1</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="Address1"></div>
+            <div class="form-row"><span class="form-label">Address2</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="Address2"></div>
+            <div class="form-row"><span class="form-label">City</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="City"></div>
+            <div class="form-row"><span class="form-label">State</span><span class="form-colon">:</span><input class="form-input" type="text" maxlength="2" aria-label="State"></div>
+            <div class="form-row"><span class="form-label">Zip</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="Zip"></div>
+            <div class="form-actions">
+              <button class="form-button save" disabled>Save</button>
+              <button class="form-button cancel" id="cancelButton">Cancel</button>
+            </div>
+          </div>
+        </section>`;
+    } else {
+      mainContent.innerHTML = `
+        <section class="content-card">
+          <div class="form-area">
+            <h2 class="form-title">${activeScreen}</h2>
+            <div class="notice">No ${activeScreen} fields have been defined yet.</div>
+            <div class="form-actions">
+              <button class="form-button save" disabled>Save</button>
+              <button class="form-button cancel" id="cancelButton">Cancel</button>
+            </div>
+          </div>
+        </section>`;
+    }
+    document.getElementById('cancelButton').addEventListener('click', displayList);
   }
 
   actionsButton.addEventListener('click', event => {
@@ -88,7 +138,10 @@
 
   actionsMenu.addEventListener('click', event => {
     event.stopPropagation();
-    if (event.target.matches('button')) closeActions();
+    if (event.target.matches('button')) {
+      if (event.target.dataset.action === 'add') displayAddForm();
+      else closeActions();
+    }
   });
 
   document.addEventListener('click', event => {
@@ -98,12 +151,15 @@
   buttons.forEach(button => {
     button.addEventListener('click', () => {
       closeActions();
-      const screen = button.dataset.screen;
+      activeScreen = button.dataset.screen;
       buttons.forEach(b => b.classList.toggle('active', b === button));
-      title.textContent = `MJ - ${screen}`;
-      document.title = `MJ - ${screen}`;
+      title.textContent = `MJ - ${activeScreen}`;
+      document.title = `MJ - ${activeScreen}`;
+      displayList();
     });
   });
+
+  displayList();
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
