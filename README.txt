@@ -1,2 +1,2 @@
-MJ Version 5
-Stores Add, validation, and local persistence.
+MJ Version 6
+Stores Add, validation, local persistence, selection radio buttons, and custom validation messages.

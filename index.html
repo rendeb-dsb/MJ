@@ -38,8 +38,8 @@
   .form-label { flex:0 0 auto; font-size:16px; white-space:nowrap; }
   .form-colon { margin-left:4px; margin-right:8px; }
   .form-input { flex:1 1 auto; min-width:0; max-width:520px; height:38px; border:1px solid #9ca3af; border-radius:5px; padding:7px 9px; font-size:16px; background:white; }
-  .state-input { flex:0 0 2ch; width:2ch; max-width:2ch; padding-left:4px; padding-right:4px; text-transform:uppercase; }
-  .zip-input { flex:0 0 5ch; width:5ch; max-width:5ch; padding-left:5px; padding-right:5px; }
+  .state-input { flex:0 0 4ch; width:4ch; max-width:4ch; padding-left:4px; padding-right:4px; text-transform:uppercase; }
+  .zip-input { flex:0 0 6.7ch; width:6.7ch; max-width:6.7ch; padding-left:5px; padding-right:5px; }
   .form-actions { display:flex; justify-content:center; gap:12px; margin-top:28px; padding-top:16px; border-top:1px solid var(--border); }
   .form-button { min-width:100px; height:40px; border:1px solid #9ca3af; border-radius:5px; padding:0 18px; font-size:16px; cursor:pointer; background:#f3f4f6; color:var(--text); }
   .form-button.save { background:#e5e7eb; }
@@ -52,7 +52,7 @@
 <header class="app-header">
   <div class="title-row">
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
-    <div id="version" class="version">v4</div>
+    <div id="version" class="version">v6</div>
   </div>
   <nav class="main-menu" aria-label="Main menu">
     <div class="menu-wrap" id="actionsWrap">
@@ -82,6 +82,7 @@
   const actionsWrap = document.getElementById('actionsWrap');
   const mainContent = document.getElementById('mainContent');
   let activeScreen = 'Stores';
+  let selectedStoreId = null;
 
   function closeActions() {
     actionsMenu.classList.remove('open');
@@ -101,7 +102,8 @@
     const stores = activeScreen === 'Stores' ? getStores() : [];
     let body = '';
     if (activeScreen === 'Stores' && stores.length) {
-      body = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Name</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Address1</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Address2</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">City</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">State</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Zip</th></tr></thead><tbody>` + stores.map(r => `<tr>${['Name','Address1','Address2','City','State','Zip'].map(k => `<td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(r[k] || '')}</td>`).join('')}</tr>`).join('') + '</tbody></table></div>';
+      body = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr><th aria-label="Select" style="width:42px;padding:10px;border-bottom:1px solid #d1d5db"></th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Name</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Address1</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Address2</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">City</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">State</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Zip</th></tr></thead><tbody>` + stores.map(r => `<tr><td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:center"><input type="radio" name="storeSelect" value="${r.StoreID}" ${Number(selectedStoreId) === Number(r.StoreID) ? 'checked' : ''} aria-label="Select store"></td>${['Name','Address1','Address2','City','State','Zip'].map(k => `<td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(r[k] || '')}</td>`).join('')}</tr>`).join('') + '</tbody></table></div>';
+      setTimeout(() => document.querySelectorAll('input[name="storeSelect"]').forEach(radio => radio.addEventListener('change', e => { selectedStoreId = Number(e.target.value); })), 0);
     } else {
       body = `<div class="empty-message">No ${activeScreen.toLowerCase()} records have been added yet.</div><div class="demo-space">Scrollable content area for the ${activeScreen} list.</div>`;
     }
@@ -112,6 +114,17 @@
     return String(value).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;', '"':'&quot;'}[c]));
   }
 
+
+  function showMessage(message) {
+    const existing = document.getElementById('appMessage');
+    if (existing) existing.remove();
+    const box = document.createElement('div');
+    box.id = 'appMessage';
+    box.style.cssText = 'position:fixed;left:16px;right:16px;top:50%;transform:translateY(-50%);z-index:2000;background:white;border:1px solid #9ca3af;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.25);padding:18px;max-width:520px;margin:auto;';
+    box.innerHTML = '<div style="font-size:16px;line-height:1.5;margin-bottom:14px">'+message+'</div><button id="messageOk" class="form-button">OK</button>';
+    document.body.appendChild(box);
+    document.getElementById('messageOk').addEventListener('click', () => box.remove());
+  }
 
   function displayAddForm() {
     closeActions();
@@ -163,10 +176,11 @@
         else if (!STATE_CODES.has(values.State)) errors.push('State must be a valid 2-character state code.');
         if (!values.Zip) errors.push('Zip is required.');
         else if (!/^\d{5}$/.test(values.Zip)) errors.push('Zip must contain exactly 5 digits.');
-        if (errors.length) { alert(errors.join('\n')); return; }
+        if (errors.length) { showMessage(errors.join('<br>')); return; }
         const stores = getStores();
         const nextId = stores.reduce((max, r) => Math.max(max, Number(r.StoreID) || 0), 0) + 1;
         stores.push({StoreID:nextId, Name:values.Name, Address1:values.Address1, Address2:values.Address2, City:values.City, State:values.State, Zip:values.Zip});
+        selectedStoreId = nextId;
         saveStores(stores);
         displayList();
       });
