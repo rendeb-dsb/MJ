@@ -38,9 +38,11 @@
   .form-label { flex:0 0 auto; font-size:16px; white-space:nowrap; }
   .form-colon { margin-left:4px; margin-right:8px; }
   .form-input { flex:1 1 auto; min-width:0; max-width:520px; height:38px; border:1px solid #9ca3af; border-radius:5px; padding:7px 9px; font-size:16px; background:white; }
+  .state-input { flex:0 0 2ch; width:2ch; max-width:2ch; padding-left:4px; padding-right:4px; text-transform:uppercase; }
+  .zip-input { flex:0 0 5ch; width:5ch; max-width:5ch; padding-left:5px; padding-right:5px; }
   .form-actions { display:flex; justify-content:center; gap:12px; margin-top:28px; padding-top:16px; border-top:1px solid var(--border); }
   .form-button { min-width:100px; height:40px; border:1px solid #9ca3af; border-radius:5px; padding:0 18px; font-size:16px; cursor:pointer; background:#f3f4f6; color:var(--text); }
-  .form-button.save { cursor:not-allowed; opacity:.55; }
+  .form-button.save { background:#e5e7eb; }
   .form-button.cancel { background:white; }
   .notice { padding:20px 16px; color:#6b7280; }
   @media (min-width:600px) { .screen-title { font-size:32px; } .version { font-size:11px; } }
@@ -86,14 +88,30 @@
     actionsButton.setAttribute('aria-expanded', 'false');
   }
 
-  function displayList() {
-    mainContent.innerHTML = `
-      <section class="content-card">
-        <div class="content-heading">${activeScreen}</div>
-        <div class="empty-message">No ${activeScreen.toLowerCase()} records have been added yet.</div>
-        <div class="demo-space">Scrollable content area for the ${activeScreen} list.</div>
-      </section>`;
+  const STORAGE_KEY = 'mj_stores';
+  const STATE_CODES = new Set('AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY'.split(' '));
+
+  function getStores() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; }
   }
+
+  function saveStores(stores) { localStorage.setItem(STORAGE_KEY, JSON.stringify(stores)); }
+
+  function displayList() {
+    const stores = activeScreen === 'Stores' ? getStores() : [];
+    let body = '';
+    if (activeScreen === 'Stores' && stores.length) {
+      body = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Name</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Address1</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Address2</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">City</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">State</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Zip</th></tr></thead><tbody>` + stores.map(r => `<tr>${['Name','Address1','Address2','City','State','Zip'].map(k => `<td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(r[k] || '')}</td>`).join('')}</tr>`).join('') + '</tbody></table></div>';
+    } else {
+      body = `<div class="empty-message">No ${activeScreen.toLowerCase()} records have been added yet.</div><div class="demo-space">Scrollable content area for the ${activeScreen} list.</div>`;
+    }
+    mainContent.innerHTML = `<section class="content-card"><div class="content-heading">${activeScreen}</div>${body}</section>`;
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;', '"':'&quot;'}[c]));
+  }
+
 
   function displayAddForm() {
     closeActions();
@@ -106,10 +124,10 @@
             <div class="form-row"><span class="form-label">Address1</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="Address1"></div>
             <div class="form-row"><span class="form-label">Address2</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="Address2"></div>
             <div class="form-row"><span class="form-label">City</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="City"></div>
-            <div class="form-row"><span class="form-label">State</span><span class="form-colon">:</span><input class="form-input" type="text" maxlength="2" aria-label="State"></div>
-            <div class="form-row"><span class="form-label">Zip</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="Zip"></div>
+            <div class="form-row"><span class="form-label">State</span><span class="form-colon">:</span><input class="form-input state-input" type="text" maxlength="2" aria-label="State" required autocomplete="address-level1"></div>
+            <div class="form-row"><span class="form-label">Zip</span><span class="form-colon">:</span><input class="form-input zip-input" type="text" inputmode="numeric" maxlength="5" aria-label="Zip" required autocomplete="postal-code"></div>
             <div class="form-actions">
-              <button class="form-button save" disabled>Save</button>
+              <button class="form-button save" id="saveButton">Save</button>
               <button class="form-button cancel" id="cancelButton">Cancel</button>
             </div>
           </div>
@@ -121,13 +139,38 @@
             <h2 class="form-title">${activeScreen}</h2>
             <div class="notice">No ${activeScreen} fields have been defined yet.</div>
             <div class="form-actions">
-              <button class="form-button save" disabled>Save</button>
+              <button class="form-button save" id="saveButton">Save</button>
               <button class="form-button cancel" id="cancelButton">Cancel</button>
             </div>
           </div>
         </section>`;
     }
     document.getElementById('cancelButton').addEventListener('click', displayList);
+    const saveButton = document.getElementById('saveButton');
+    if (activeScreen === 'Stores') {
+      const stateInput = document.querySelector('.state-input');
+      const zipInput = document.querySelector('.zip-input');
+      stateInput.addEventListener('input', () => { stateInput.value = stateInput.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0,2); });
+      zipInput.addEventListener('input', () => { zipInput.value = zipInput.value.replace(/[^0-9]/g, '').slice(0,5); });
+      saveButton.addEventListener('click', () => {
+        const inputs = mainContent.querySelectorAll('.form-input');
+        const values = {}; inputs.forEach(i => values[i.getAttribute('aria-label')] = i.value.trim());
+        const errors = [];
+        if (values.Name.length < 3) errors.push('Name is required and must be at least 3 characters.');
+        if (!values.Address1) errors.push('Address1 is required.');
+        if (values.City.length < 3) errors.push('City is required and must be at least 3 characters.');
+        if (!values.State) errors.push('State is required.');
+        else if (!STATE_CODES.has(values.State)) errors.push('State must be a valid 2-character state code.');
+        if (!values.Zip) errors.push('Zip is required.');
+        else if (!/^\d{5}$/.test(values.Zip)) errors.push('Zip must contain exactly 5 digits.');
+        if (errors.length) { alert(errors.join('\n')); return; }
+        const stores = getStores();
+        const nextId = stores.reduce((max, r) => Math.max(max, Number(r.StoreID) || 0), 0) + 1;
+        stores.push({StoreID:nextId, Name:values.Name, Address1:values.Address1, Address2:values.Address2, City:values.City, State:values.State, Zip:values.Zip});
+        saveStores(stores);
+        displayList();
+      });
+    }
   }
 
   actionsButton.addEventListener('click', event => {
