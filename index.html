@@ -52,14 +52,14 @@
 <header class="app-header">
   <div class="title-row">
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
-    <div id="version" class="version">v6</div>
+    <div id="version" class="version">v7</div>
   </div>
   <nav class="main-menu" aria-label="Main menu">
     <div class="menu-wrap" id="actionsWrap">
       <button class="menu-item" id="actionsButton" aria-haspopup="true" aria-expanded="false">Actions</button>
       <div class="submenu" id="actionsMenu" role="menu" aria-label="Actions menu">
         <button role="menuitem" data-action="add">Add</button>
-        <button role="menuitem">Change</button>
+        <button role="menuitem" data-action="change">Change</button>
         <button role="menuitem">Delete</button>
         <div class="separator" role="separator"></div>
         <button role="menuitem">Import</button>
@@ -126,19 +126,31 @@
     document.getElementById('messageOk').addEventListener('click', () => box.remove());
   }
 
-  function displayAddForm() {
+  function displayAddForm(mode = 'add') {
     closeActions();
+    if (mode === 'change' && activeScreen === 'Stores' && selectedStoreId == null) {
+      showMessage('Please select a Store record before choosing Change.');
+      return;
+    }
+    const editingId = mode === 'change' ? Number(selectedStoreId) : null;
+    const editingStore = editingId != null ? getStores().find(r => Number(r.StoreID) === editingId) : null;
+    if (mode === 'change' && !editingStore) {
+      showMessage('The selected Store record could not be found.');
+      return;
+    }
+    const heading = mode === 'change' ? 'Stores' : activeScreen;
     if (activeScreen === 'Stores') {
+      const v = editingStore || {};
       mainContent.innerHTML = `
         <section class="content-card">
           <div class="form-area">
-            <h2 class="form-title">Stores</h2>
-            <div class="form-row"><span class="form-label">Name</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="Name"></div>
-            <div class="form-row"><span class="form-label">Address1</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="Address1"></div>
-            <div class="form-row"><span class="form-label">Address2</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="Address2"></div>
-            <div class="form-row"><span class="form-label">City</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="City"></div>
-            <div class="form-row"><span class="form-label">State</span><span class="form-colon">:</span><input class="form-input state-input" type="text" maxlength="2" aria-label="State" required autocomplete="address-level1"></div>
-            <div class="form-row"><span class="form-label">Zip</span><span class="form-colon">:</span><input class="form-input zip-input" type="text" inputmode="numeric" maxlength="5" aria-label="Zip" required autocomplete="postal-code"></div>
+            <h2 class="form-title">${heading}</h2>
+            <div class="form-row"><span class="form-label">Name</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="Name" value="${escapeHtml(v.Name || '')}"></div>
+            <div class="form-row"><span class="form-label">Address1</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="Address1" value="${escapeHtml(v.Address1 || '')}"></div>
+            <div class="form-row"><span class="form-label">Address2</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="Address2" value="${escapeHtml(v.Address2 || '')}"></div>
+            <div class="form-row"><span class="form-label">City</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="City" value="${escapeHtml(v.City || '')}"></div>
+            <div class="form-row"><span class="form-label">State</span><span class="form-colon">:</span><input class="form-input state-input" type="text" maxlength="2" aria-label="State" value="${escapeHtml(v.State || '')}" required autocomplete="address-level1"></div>
+            <div class="form-row"><span class="form-label">Zip</span><span class="form-colon">:</span><input class="form-input zip-input" type="text" inputmode="numeric" maxlength="5" aria-label="Zip" value="${escapeHtml(v.Zip || '')}" required autocomplete="postal-code"></div>
             <div class="form-actions">
               <button class="form-button save" id="saveButton">Save</button>
               <button class="form-button cancel" id="cancelButton">Cancel</button>
@@ -158,7 +170,10 @@
           </div>
         </section>`;
     }
-    document.getElementById('cancelButton').addEventListener('click', displayList);
+    document.getElementById('cancelButton').addEventListener('click', () => {
+      if (mode === 'change') selectedStoreId = editingId;
+      displayList();
+    });
     const saveButton = document.getElementById('saveButton');
     if (activeScreen === 'Stores') {
       const stateInput = document.querySelector('.state-input');
@@ -178,9 +193,16 @@
         else if (!/^\d{5}$/.test(values.Zip)) errors.push('Zip must contain exactly 5 digits.');
         if (errors.length) { showMessage(errors.join('<br>')); return; }
         const stores = getStores();
-        const nextId = stores.reduce((max, r) => Math.max(max, Number(r.StoreID) || 0), 0) + 1;
-        stores.push({StoreID:nextId, Name:values.Name, Address1:values.Address1, Address2:values.Address2, City:values.City, State:values.State, Zip:values.Zip});
-        selectedStoreId = nextId;
+        if (mode === 'change') {
+          const index = stores.findIndex(r => Number(r.StoreID) === editingId);
+          if (index < 0) { showMessage('The selected Store record could not be found.'); return; }
+          stores[index] = {StoreID: editingId, Name:values.Name, Address1:values.Address1, Address2:values.Address2, City:values.City, State:values.State, Zip:values.Zip};
+          selectedStoreId = editingId;
+        } else {
+          const nextId = stores.reduce((max, r) => Math.max(max, Number(r.StoreID) || 0), 0) + 1;
+          stores.push({StoreID:nextId, Name:values.Name, Address1:values.Address1, Address2:values.Address2, City:values.City, State:values.State, Zip:values.Zip});
+          selectedStoreId = nextId;
+        }
         saveStores(stores);
         displayList();
       });
@@ -196,7 +218,8 @@
   actionsMenu.addEventListener('click', event => {
     event.stopPropagation();
     if (event.target.matches('button')) {
-      if (event.target.dataset.action === 'add') displayAddForm();
+      if (event.target.dataset.action === 'add') displayAddForm('add');
+      else if (event.target.dataset.action === 'change') displayAddForm('change');
       else closeActions();
     }
   });
