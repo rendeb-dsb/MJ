@@ -62,7 +62,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v15</div>
+    <div id="version" class="version">v16</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
     <button class="gear-button" id="gearButton" aria-label="Application Codes" title="Application Codes">⚙</button>
   </div>
@@ -251,16 +251,17 @@
   }
   function saveLookupCodes(rows) { localStorage.setItem(LOOKUP_KEY, JSON.stringify(rows)); }
 
-  function displayApplicationCodeAdd() {
+  function displayApplicationCodeForm(mode, record) {
     closeActions();
+    const isChange = mode === 'change';
     mainContent.innerHTML = `
       <section class="content-card">
         <div class="form-area">
-          <h2 class="form-title">Application Code - Add</h2>
-          <div class="form-row"><span class="form-label">Group Code</span><span class="form-colon">:</span><input class="form-input" id="codeGroup" class="group-code-input" type="text" maxlength="2" aria-label="Group Code"></div>
-          <div class="form-row"><span class="form-label">Order</span><span class="form-colon">:</span><input class="form-input short-code-input" id="codeOrder" type="text" inputmode="numeric" maxlength="3" aria-label="Order"></div>
-          <div class="form-row"><span class="form-label">Value Code</span><span class="form-colon">:</span><input class="form-input value-code-input" id="codeValueCode" type="text" maxlength="5" aria-label="Value Code"></div>
-          <div class="form-row"><span class="form-label">Value</span><span class="form-colon">:</span><input class="form-input" id="codeValue" type="text" aria-label="Value"></div>
+          <h2 class="form-title">Application Code - ${isChange ? 'Change' : 'Add'}</h2>
+          <div class="form-row"><span class="form-label">Group Code</span><span class="form-colon">:</span><input class="form-input group-code-input" id="codeGroup" type="text" maxlength="2" aria-label="Group Code" value="${isChange ? escapeHtml(record.GroupCode || '') : ''}"></div>
+          <div class="form-row"><span class="form-label">Order</span><span class="form-colon">:</span><input class="form-input short-code-input" id="codeOrder" type="text" inputmode="numeric" maxlength="3" aria-label="Order" value="${isChange ? escapeHtml(String(record.Order ?? '')) : ''}"></div>
+          <div class="form-row"><span class="form-label">Value Code</span><span class="form-colon">:</span><input class="form-input value-code-input" id="codeValueCode" type="text" maxlength="5" aria-label="Value Code" value="${isChange ? escapeHtml(record.ValueCode || '') : ''}"></div>
+          <div class="form-row"><span class="form-label">Value</span><span class="form-colon">:</span><input class="form-input" id="codeValue" type="text" aria-label="Value" value="${isChange ? escapeHtml(record.Value || '') : ''}"></div>
           <div class="form-actions"><button class="form-button save" id="codeSaveButton">Save</button><button class="form-button cancel" id="codeCancelButton">Cancel</button></div>
         </div>
       </section>`;
@@ -281,10 +282,24 @@
       if (!valueCode) { showMessage('Value Code is required.'); return; }
       if (valueCode.length > 5) { showMessage('Value Code may contain no more than 5 characters.'); return; }
       const rows=getLookupCodes();
-      const nextId=rows.reduce((m,r)=>Math.max(m,Number(r.LookupCodeID)||0),0)+1;
-      rows.push({LookupCodeID:nextId, GroupCode:group, Order:Number(orderText), ValueCode:valueCode, Value:value});
-      saveLookupCodes(rows); selectedLookupId=nextId; displayApplicationCodes();
+      if (isChange) {
+        const id = Number(record.LookupCodeID);
+        const index = rows.findIndex(r => Number(r.LookupCodeID) === id);
+        if (index < 0) { selectedLookupId = null; displayApplicationCodes(); return; }
+        rows[index] = { ...rows[index], GroupCode:group, Order:Number(orderText), ValueCode:valueCode, Value:value };
+        saveLookupCodes(rows);
+        selectedLookupId = id;
+        displayApplicationCodes();
+      } else {
+        const nextId=rows.reduce((m,r)=>Math.max(m,Number(r.LookupCodeID)||0),0)+1;
+        rows.push({LookupCodeID:nextId, GroupCode:group, Order:Number(orderText), ValueCode:valueCode, Value:value});
+        saveLookupCodes(rows); selectedLookupId=nextId; displayApplicationCodes();
+      }
     });
+  }
+
+  function displayApplicationCodeAdd() {
+    displayApplicationCodeForm('add', null);
   }
 
   function displayApplicationCodes() {
@@ -304,6 +319,7 @@
           <div class="purchase-adjusters">
             <button type="button" class="small-button" id="codesPlus" aria-label="Plus">+</button>
             <button type="button" class="small-button" id="codesMinus" aria-label="Minus">-</button>
+            <button type="button" class="small-button" id="codesChange" aria-label="Change">•</button>
           </div>
           <h2 class="form-title purchase-section-title">LookupCodes</h2>
           <div class="purchase-product-list"><table style="width:100%;border-collapse:collapse"><thead><tr>
@@ -318,6 +334,19 @@
       </section>`;
     document.querySelectorAll('input[name="lookupSelect"]').forEach(r => r.addEventListener('change', e => selectedLookupId=Number(e.target.value)));
     document.getElementById('codesPlus').addEventListener('click', displayApplicationCodeAdd);
+    document.getElementById('codesChange').addEventListener('click', () => {
+      if (selectedLookupId == null) {
+        showMessage('Please select an Application Code record before choosing Change.');
+        return;
+      }
+      const record = getLookupCodes().find(r => Number(r.LookupCodeID) === Number(selectedLookupId));
+      if (!record) {
+        selectedLookupId = null;
+        displayApplicationCodes();
+        return;
+      }
+      displayApplicationCodeForm('change', record);
+    });
     document.getElementById('codesMinus').addEventListener('click', () => {
       if (selectedLookupId == null) {
         showMessage('Please select an Application Code record before choosing Delete.');
