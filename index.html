@@ -59,8 +59,9 @@
 <body>
 <header class="app-header">
   <div class="title-row">
+    <div id="version" class="version">v13</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
-    <div id="version" class="version">v12</div>
+    <button class="gear-button" id="gearButton" aria-label="Application Codes" title="Application Codes">⚙</button>
   </div>
   <nav class="main-menu" aria-label="Main menu">
     <div class="menu-wrap" id="actionsWrap">
@@ -80,7 +81,6 @@
     <button class="menu-item" data-screen="Purchases">Purchases</button>
     <div class="usage-menu-wrap"><button class="menu-item" data-screen="Usage">Usage</button></div>
   </nav>
-  <button class="gear-button" id="gearButton" aria-label="Application Codes" title="Application Codes">⚙</button>
 </header>
 <main id="mainContent"></main>
 <script>
@@ -240,9 +240,52 @@
     document.getElementById('productCancelButton').addEventListener('click', () => displayAddForm('add'));
   }
 
+  const LOOKUP_KEY = 'mj_lookup_codes';
+  let selectedLookupId = null;
+
+  function getLookupCodes() {
+    try { return JSON.parse(localStorage.getItem(LOOKUP_KEY)) || []; } catch { return []; }
+  }
+  function saveLookupCodes(rows) { localStorage.setItem(LOOKUP_KEY, JSON.stringify(rows)); }
+
+  function displayApplicationCodeAdd() {
+    closeActions();
+    mainContent.innerHTML = `
+      <section class="content-card">
+        <div class="form-area">
+          <h2 class="form-title">Application Code - Add</h2>
+          <div class="form-row"><span class="form-label">Group Code</span><span class="form-colon">:</span><input class="form-input" id="codeGroup" type="text" maxlength="2" aria-label="Group Code"></div>
+          <div class="form-row"><span class="form-label">Order</span><span class="form-colon">:</span><input class="form-input" id="codeOrder" type="number" inputmode="numeric" aria-label="Order"></div>
+          <div class="form-row"><span class="form-label">Value</span><span class="form-colon">:</span><input class="form-input" id="codeValue" type="text" aria-label="Value"></div>
+          <div class="form-actions"><button class="form-button save" id="codeSaveButton">Save</button><button class="form-button cancel" id="codeCancelButton">Cancel</button></div>
+        </div>
+      </section>`;
+    const group=document.getElementById('codeGroup');
+    group.addEventListener('input',()=>group.value=group.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,2));
+    document.getElementById('codeCancelButton').addEventListener('click', displayApplicationCodes);
+    document.getElementById('codeSaveButton').addEventListener('click', () => {
+      const group= document.getElementById('codeGroup').value.trim();
+      const orderText=document.getElementById('codeOrder').value.trim();
+      const value=document.getElementById('codeValue').value.trim();
+      if (!group || group.length !== 2) { showMessage('Group Code is required and must contain 2 characters.'); return; }
+      if (!orderText || !Number.isFinite(Number(orderText))) { showMessage('Order is required and must be a number.'); return; }
+      if (!value) { showMessage('Value is required.'); return; }
+      const rows=getLookupCodes();
+      const nextId=rows.reduce((m,r)=>Math.max(m,Number(r.LookupCodeID)||0),0)+1;
+      rows.push({LookupCodeID:nextId, GroupCode:group, Order:Number(orderText), Value:value});
+      saveLookupCodes(rows); selectedLookupId=nextId; displayApplicationCodes();
+    });
+  }
+
   function displayApplicationCodes() {
     closeActions();
     const previousScreen = activeScreen;
+    const rows = getLookupCodes();
+    const tableRows = rows.length ? rows.map(r => `<tr>
+      <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:center"><input type="radio" name="lookupSelect" value="${r.LookupCodeID}" ${Number(selectedLookupId)===Number(r.LookupCodeID)?'checked':''} aria-label="Select application code"></td>
+      <td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(r.GroupCode)}</td>
+      <td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(r.Order)}</td>
+      <td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(r.Value)}</td></tr>`).join('') : `<tr><td colspan="4" class="empty-message" style="padding:28px 10px">No LookupCodes have been added.</td></tr>`;
     mainContent.innerHTML = `
       <section class="content-card">
         <div class="form-area">
@@ -252,21 +295,17 @@
             <button type="button" class="small-button" id="codesMinus" aria-label="Minus">-</button>
           </div>
           <h2 class="form-title purchase-section-title">LookupCodes</h2>
-          <div class="purchase-product-list">
-            <table style="width:100%;border-collapse:collapse">
-              <thead><tr>
-                <th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">GroupCode</th>
-                <th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Order</th>
-                <th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Value</th>
-              </tr></thead>
-              <tbody><tr><td colspan="3" class="empty-message" style="padding:28px 10px">No LookupCodes have been added.</td></tr></tbody>
-            </table>
-          </div>
-          <div class="form-actions">
-            <button class="form-button cancel" id="codesCloseButton">Close</button>
-          </div>
+          <div class="purchase-product-list"><table style="width:100%;border-collapse:collapse"><thead><tr>
+            <th aria-label="Select" style="width:42px;padding:10px;border-bottom:1px solid #d1d5db"></th>
+            <th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">GroupCode</th>
+            <th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Order</th>
+            <th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Value</th>
+          </tr></thead><tbody>${tableRows}</tbody></table></div>
+          <div class="form-actions"><button class="form-button cancel" id="codesCloseButton">Close</button></div>
         </div>
       </section>`;
+    document.querySelectorAll('input[name="lookupSelect"]').forEach(r => r.addEventListener('change', e => selectedLookupId=Number(e.target.value)));
+    document.getElementById('codesPlus').addEventListener('click', displayApplicationCodeAdd);
     document.getElementById('codesCloseButton').addEventListener('click', () => {
       activeScreen = previousScreen;
       buttons.forEach(b => b.classList.toggle('active', b.dataset.screen === activeScreen));
