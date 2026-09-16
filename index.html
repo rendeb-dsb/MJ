@@ -22,6 +22,10 @@
   .menu-item { flex:1 0 25%; min-width:88px; border:0; border-right:1px solid rgba(255,255,255,.14); background:transparent; color:white; padding:10px 8px; font-size:15px; cursor:pointer; }
   .menu-item:hover, .menu-item:focus-visible { background:var(--menu-hover); outline:none; }
   .menu-item.active { background:#111827; font-weight:700; }
+  .usage-menu-wrap { position:relative; flex:1 0 25%; min-width:88px; }
+  .usage-menu-wrap .menu-item { width:100%; padding-right:34px; }
+  .gear-button { position:absolute; right:7px; top:50%; transform:translateY(-50%); border:0; background:transparent; color:white; font-size:18px; line-height:1; padding:2px; cursor:pointer; z-index:2; }
+  .gear-button:hover, .gear-button:focus-visible { opacity:.8; outline:none; }
   .submenu { display:none; position:absolute; left:0; top:100%; min-width:170px; background:white; border:1px solid var(--border); border-top:0; box-shadow:0 4px 10px rgba(0,0,0,.22); z-index:1100; }
   .submenu.open { display:block; }
   .submenu button { display:block; width:100%; border:0; background:white; color:var(--text); text-align:left; padding:11px 16px; font-size:15px; cursor:pointer; }
@@ -57,7 +61,7 @@
 <header class="app-header">
   <div class="title-row">
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
-    <div id="version" class="version">v10</div>
+    <div id="version" class="version">v11</div>
   </div>
   <nav class="main-menu" aria-label="Main menu">
     <div class="menu-wrap" id="actionsWrap">
@@ -75,7 +79,7 @@
     </div>
     <button class="menu-item active" data-screen="Stores">Stores</button>
     <button class="menu-item" data-screen="Purchases">Purchases</button>
-    <button class="menu-item" data-screen="Usage">Usage</button>
+    <div class="usage-menu-wrap"><button class="menu-item" data-screen="Usage">Usage</button><button class="gear-button" id="gearButton" aria-label="Application Codes" title="Application Codes">⚙</button></div>
   </nav>
 </header>
 <main id="mainContent"></main>
@@ -226,12 +230,50 @@
           <div class="form-row"><span class="form-label">Cost</span><span class="form-colon">:</span><input class="form-input" type="text" inputmode="decimal" aria-label="Cost"></div>
           <div class="form-row"><span class="form-label">Quantity</span><span class="form-colon">:</span><input class="form-input" type="text" inputmode="numeric" aria-label="Quantity" value="1"></div>
           <div class="form-row"><span class="form-label">Type</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="Type" maxlength="1" value=""></div>
+          <div class="form-row"><span class="form-label">THC</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="THC" value=""></div>
+          <div class="form-row"><span class="form-label">Usage</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="Usage" required></div>
           <div class="form-actions"><button class="form-button save" id="productSaveButton">Save</button><button class="form-button cancel" id="productCancelButton">Cancel</button></div>
         </div>
       </section>`;
     document.getElementById('productSaveButton').disabled = true;
     document.getElementById('productSaveButton').setAttribute('aria-disabled', 'true');
     document.getElementById('productCancelButton').addEventListener('click', () => displayAddForm('add'));
+  }
+
+  function displayApplicationCodes() {
+    closeActions();
+    const previousScreen = activeScreen;
+    mainContent.innerHTML = `
+      <section class="content-card">
+        <div class="form-area">
+          <h2 class="form-title">Application Codes</h2>
+          <div class="purchase-adjusters">
+            <button type="button" class="small-button" id="codesPlus" aria-label="Plus">+</button>
+            <button type="button" class="small-button" id="codesMinus" aria-label="Minus">-</button>
+          </div>
+          <h2 class="form-title purchase-section-title">LookupCodes</h2>
+          <div class="purchase-product-list">
+            <table style="width:100%;border-collapse:collapse">
+              <thead><tr>
+                <th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">GroupCode</th>
+                <th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Order</th>
+                <th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Value</th>
+              </tr></thead>
+              <tbody><tr><td colspan="3" class="empty-message" style="padding:28px 10px">No LookupCodes have been added.</td></tr></tbody>
+            </table>
+          </div>
+          <div class="form-actions">
+            <button class="form-button cancel" id="codesCloseButton">Close</button>
+          </div>
+        </div>
+      </section>`;
+    document.getElementById('codesCloseButton').addEventListener('click', () => {
+      activeScreen = previousScreen;
+      buttons.forEach(b => b.classList.toggle('active', b.dataset.screen === activeScreen));
+      title.textContent = `MJ - ${activeScreen}`;
+      document.title = `MJ - ${activeScreen}`;
+      displayList();
+    });
   }
 
   function deleteSelectedStore() {
@@ -264,6 +306,8 @@
       {label:'No', action:displayList}
     ]);
   }
+
+  document.getElementById('gearButton').addEventListener('click', event => { event.stopPropagation(); displayApplicationCodes(); });
 
   actionsButton.addEventListener('click', event => {
     event.stopPropagation();
