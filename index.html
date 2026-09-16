@@ -40,6 +40,9 @@
   .form-row { display:flex; align-items:center; margin:0 0 14px; min-height:40px; }
   .form-label { flex:0 0 auto; font-size:16px; white-space:nowrap; }
   .form-colon { margin-left:4px; margin-right:8px; }
+  .group-code-input { width: 2ch; box-sizing: content-box; }
+  .short-code-input { width: 3ch; box-sizing: content-box; }
+  .value-code-input { width: 5ch; box-sizing: content-box; }
   .form-input { flex:1 1 auto; min-width:0; max-width:520px; height:38px; border:1px solid #9ca3af; border-radius:5px; padding:7px 9px; font-size:16px; background:white; }
   .state-input { flex:0 0 4ch; width:4ch; max-width:4ch; padding-left:4px; padding-right:4px; text-transform:uppercase; }
   .zip-input { flex:0 0 6.7ch; width:6.7ch; max-width:6.7ch; padding-left:5px; padding-right:5px; }
@@ -59,7 +62,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v13</div>
+    <div id="version" class="version">v14</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
     <button class="gear-button" id="gearButton" aria-label="Application Codes" title="Application Codes">⚙</button>
   </div>
@@ -254,25 +257,33 @@
       <section class="content-card">
         <div class="form-area">
           <h2 class="form-title">Application Code - Add</h2>
-          <div class="form-row"><span class="form-label">Group Code</span><span class="form-colon">:</span><input class="form-input" id="codeGroup" type="text" maxlength="2" aria-label="Group Code"></div>
-          <div class="form-row"><span class="form-label">Order</span><span class="form-colon">:</span><input class="form-input" id="codeOrder" type="number" inputmode="numeric" aria-label="Order"></div>
+          <div class="form-row"><span class="form-label">Group Code</span><span class="form-colon">:</span><input class="form-input" id="codeGroup" class="group-code-input" type="text" maxlength="2" aria-label="Group Code"></div>
+          <div class="form-row"><span class="form-label">Order</span><span class="form-colon">:</span><input class="form-input short-code-input" id="codeOrder" type="text" inputmode="numeric" maxlength="3" aria-label="Order"></div>
+          <div class="form-row"><span class="form-label">Value Code</span><span class="form-colon">:</span><input class="form-input value-code-input" id="codeValueCode" type="text" maxlength="5" aria-label="Value Code"></div>
           <div class="form-row"><span class="form-label">Value</span><span class="form-colon">:</span><input class="form-input" id="codeValue" type="text" aria-label="Value"></div>
           <div class="form-actions"><button class="form-button save" id="codeSaveButton">Save</button><button class="form-button cancel" id="codeCancelButton">Cancel</button></div>
         </div>
       </section>`;
     const group=document.getElementById('codeGroup');
+    const order=document.getElementById('codeOrder');
+    const valueCode=document.getElementById('codeValueCode');
     group.addEventListener('input',()=>group.value=group.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,2));
+    order.addEventListener('input',()=>order.value=order.value.replace(/[^0-9]/g,'').slice(0,3));
+    valueCode.addEventListener('input',()=>valueCode.value=valueCode.value.slice(0,5));
     document.getElementById('codeCancelButton').addEventListener('click', displayApplicationCodes);
     document.getElementById('codeSaveButton').addEventListener('click', () => {
       const group= document.getElementById('codeGroup').value.trim();
       const orderText=document.getElementById('codeOrder').value.trim();
+      const valueCode=document.getElementById('codeValueCode').value.trim();
       const value=document.getElementById('codeValue').value.trim();
       if (!group || group.length !== 2) { showMessage('Group Code is required and must contain 2 characters.'); return; }
-      if (!orderText || !Number.isFinite(Number(orderText))) { showMessage('Order is required and must be a number.'); return; }
+      if (!orderText || !/^[0-9]{1,3}$/.test(orderText) || Number(orderText) < 0 || Number(orderText) > 999) { showMessage('Order is required and must be a number from 0 to 999.'); return; }
+      if (!valueCode) { showMessage('Value Code is required.'); return; }
+      if (valueCode.length > 5) { showMessage('Value Code may contain no more than 5 characters.'); return; }
       if (!value) { showMessage('Value is required.'); return; }
       const rows=getLookupCodes();
       const nextId=rows.reduce((m,r)=>Math.max(m,Number(r.LookupCodeID)||0),0)+1;
-      rows.push({LookupCodeID:nextId, GroupCode:group, Order:Number(orderText), Value:value});
+      rows.push({LookupCodeID:nextId, GroupCode:group, Order:Number(orderText), ValueCode:valueCode, Value:value});
       saveLookupCodes(rows); selectedLookupId=nextId; displayApplicationCodes();
     });
   }
@@ -285,7 +296,8 @@
       <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:center"><input type="radio" name="lookupSelect" value="${r.LookupCodeID}" ${Number(selectedLookupId)===Number(r.LookupCodeID)?'checked':''} aria-label="Select application code"></td>
       <td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(r.GroupCode)}</td>
       <td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(r.Order)}</td>
-      <td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(r.Value)}</td></tr>`).join('') : `<tr><td colspan="4" class="empty-message" style="padding:28px 10px">No LookupCodes have been added.</td></tr>`;
+      <td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(r.ValueCode || '')}</td>
+      <td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(r.Value)}</td></tr>`).join('') : `<tr><td colspan="5" class="empty-message" style="padding:28px 10px">No LookupCodes have been added.</td></tr>`;
     mainContent.innerHTML = `
       <section class="content-card">
         <div class="form-area">
@@ -299,6 +311,7 @@
             <th aria-label="Select" style="width:42px;padding:10px;border-bottom:1px solid #d1d5db"></th>
             <th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">GroupCode</th>
             <th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Order</th>
+            <th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">ValueCode</th>
             <th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Value</th>
           </tr></thead><tbody>${tableRows}</tbody></table></div>
           <div class="form-actions"><button class="form-button cancel" id="codesCloseButton">Close</button></div>
