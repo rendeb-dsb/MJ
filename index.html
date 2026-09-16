@@ -56,13 +56,17 @@
   .purchase-section-title { margin-top:4px; margin-bottom:8px; }
   .purchase-product-list { border:1px solid var(--border); border-radius:6px; overflow:hidden; }
   .form-button:disabled { opacity:.55; cursor:default; }
+  .csv-file-list { max-height:55vh; overflow:auto; border:1px solid var(--border); border-radius:6px; margin:12px 0; }
+  .csv-file-button { display:block; width:100%; border:0; border-bottom:1px solid #e5e7eb; background:white; text-align:left; padding:12px; font-size:15px; cursor:pointer; }
+  .csv-file-button:last-child { border-bottom:0; }
+  .csv-file-button:hover, .csv-file-button:focus-visible { background:#f3f4f6; outline:none; }
   @media (min-width:600px) { .screen-title { font-size:32px; } .version { font-size:11px; } }
 </style>
 </head>
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v16</div>
+    <div id="version" class="version">v17</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
     <button class="gear-button" id="gearButton" aria-label="Application Codes" title="Application Codes">⚙</button>
   </div>
@@ -111,6 +115,9 @@
   }
 
   function saveStores(stores) { localStorage.setItem(STORAGE_KEY, JSON.stringify(stores)); }
+
+  function getPurchases() { try { return JSON.parse(localStorage.getItem(PURCHASES_KEY)) || []; } catch { return []; } }
+  function savePurchases(rows) { localStorage.setItem(PURCHASES_KEY, JSON.stringify(rows)); }
 
   function displayList() {
     const stores = activeScreen === 'Stores' ? getStores() : [];
@@ -251,6 +258,111 @@
   }
   function saveLookupCodes(rows) { localStorage.setItem(LOOKUP_KEY, JSON.stringify(rows)); }
 
+  function csvEscape(value) {
+    const text = String(value ?? '');
+    return /[",\n\r]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
+  }
+
+  function parseCsv(text) {
+    const rows = [];
+    let row = [], field = '', quoted = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (quoted) {
+        if (ch === '"') {
+          if (text[i + 1] === '"') { field += '"'; i++; }
+          else quoted = false;
+        } else field += ch;
+      } else if (ch === '"') quoted = true;
+      else if (ch === ',') { row.push(field); field = ''; }
+      else if (ch === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+      else if (ch !== '\r') field += ch;
+    }
+    if (field.length || row.length) { row.push(field); rows.push(row); }
+    return rows;
+  }
+
+  function exportPurchasesCsv() {
+    const rows = getPurchases();
+    const headers = ['PurchaseID','StoreID','PurchDate'];
+    const csv = [headers, ...rows.map(r => [r.PurchaseID ?? '', r.StoreID ?? '', r.PurchDate ?? ''])]
+      .map(row => row.map(csvEscape).join(',')).join('\r\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date();
+    const filename = `MJ-Purchases-${stamp.getFullYear()}${String(stamp.getMonth()+1).padStart(2,'0')}${String(stamp.getDate()).padStart(2,'0')}.csv`;
+    a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function showCsvFileChooser(files) {
+    const csvFiles = Array.from(files).filter(f => /\.csv$/i.test(f.name));
+    if (!csvFiles.length) {
+      showMessage('No CSV files were found in the selected directory.');
+      return;
+    }
+    const box = document.createElement('div');
+    box.id = 'appCsvChooser';
+    box.style.cssText = 'position:fixed;left:16px;right:16px;top:50%;transform:translateY(-50%);z-index:2100;background:white;border:1px solid #9ca3af;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.25);padding:18px;max-width:520px;margin:auto;';
+    box.innerHTML = '<div style="font-size:18px;font-weight:700">Select CSV file</div><div style="font-size:14px;margin-top:6px;color:#6b7280">CSV files in the selected directory:</div><div class="csv-file-list"></div><div style="display:flex;justify-content:center"><button class="form-button cancel" id="csvChooserCancel">Cancel</button></div>';
+    document.body.appendChild(box);
+    const list = box.querySelector('.csv-file-list');
+    csvFiles.forEach(file => {
+      const btn = document.createElement('button');
+      btn.className = 'csv-file-button';
+      btn.textContent = file.name;
+      btn.addEventListener('click', async () => {
+        box.remove();
+        await importPurchasesCsv(file);
+      });
+      list.appendChild(btn);
+    });
+    document.getElementById('csvChooserCancel').addEventListener('click', () => box.remove());
+  }
+
+  async function importPurchasesCsv(file) {
+    try {
+      const rows = parseCsv(await file.text());
+      if (!rows.length) { showMessage('The selected CSV file is empty.'); return; }
+      const headers = rows[0].map(h => h.trim());
+      const required = ['PurchaseID','StoreID','PurchDate'];
+      if (!required.every(h => headers.includes(h))) {
+        showMessage('The selected CSV file does not contain the required Purchases columns: PurchaseID, StoreID, PurchDate.');
+        return;
+      }
+      const index = Object.fromEntries(headers.map((h,i)=>[h,i]));
+      const imported = [];
+      for (let i = 1; i < rows.length; i++) {
+        if (rows[i].every(v => String(v).trim() === '')) continue;
+        const line = rows[i];
+        const id = Number(String(line[index.PurchaseID] ?? '').trim());
+        const storeId = Number(String(line[index.StoreID] ?? '').trim());
+        const date = String(line[index.PurchDate] ?? '').trim();
+        if (!Number.isInteger(id) || id < 1) { showMessage(`Import error on CSV row ${i + 1}: PurchaseID must be a positive integer.`); return; }
+        if (!Number.isInteger(storeId) || storeId < 1) { showMessage(`Import error on CSV row ${i + 1}: StoreID must be a positive integer.`); return; }
+        if (!/^\d{2}\/\d{2}\/\d{4}$/.test(date)) { showMessage(`Import error on CSV row ${i + 1}: PurchDate must be in mm/dd/yyyy format.`); return; }
+        imported.push({PurchaseID:id, StoreID:storeId, PurchDate:date});
+      }
+      savePurchases(imported);
+      displayList();
+      showMessage(`${imported.length} Purchases record${imported.length === 1 ? '' : 's'} imported.`);
+    } catch (err) {
+      showMessage('The selected CSV file could not be read.');
+    }
+  }
+
+  function importPurchasesFromDirectory() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.setAttribute('webkitdirectory', '');
+    input.setAttribute('directory', '');
+    input.accept = '.csv,text/csv';
+    input.addEventListener('change', () => showCsvFileChooser(input.files));
+    input.click();
+  }
+
   function displayApplicationCodeForm(mode, record) {
     closeActions();
     const isChange = mode === 'change';
@@ -270,7 +382,7 @@
     const valueCode=document.getElementById('codeValueCode');
     group.addEventListener('input',()=>group.value=group.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,2));
     order.addEventListener('input',()=>order.value=order.value.replace(/[^0-9]/g,'').slice(0,3));
-    valueCode.addEventListener('input',()=>valueCode.value=valueCode.value.slice(0,5));
+    valueCode.addEventListener('input',()=>valueCode.value=valueCode.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,5));
     document.getElementById('codeCancelButton').addEventListener('click', displayApplicationCodes);
     document.getElementById('codeSaveButton').addEventListener('click', () => {
       const group= document.getElementById('codeGroup').value.trim();
@@ -281,7 +393,16 @@
       if (!orderText || !/^[0-9]{1,3}$/.test(orderText) || Number(orderText) < 0 || Number(orderText) > 999) { showMessage('Order is required and must be a number from 0 to 999.'); return; }
       if (!valueCode) { showMessage('Value Code is required.'); return; }
       if (valueCode.length > 5) { showMessage('Value Code may contain no more than 5 characters.'); return; }
+      if (!/^[A-Z0-9]{1,5}$/.test(group)) { showMessage('Group Code must contain only uppercase letters and numbers.'); return; }
+      if (group !== group.toUpperCase()) { showMessage('Group Code must be uppercase.'); return; }
+      if (valueCode !== valueCode.toUpperCase()) { showMessage('Value Code must be uppercase.'); return; }
+      if (!/^[A-Z0-9]{1,5}$/.test(valueCode)) { showMessage('Value Code must contain only uppercase letters and numbers.'); return; }
       const rows=getLookupCodes();
+      const currentId = isChange ? Number(record.LookupCodeID) : null;
+      const duplicateOrder = rows.some(r => Number(r.LookupCodeID) !== currentId && String(r.GroupCode || '').toUpperCase() === group && Number(r.Order) === Number(orderText));
+      if (duplicateOrder) { showMessage('Order must be unique within the supplied Group Code.'); return; }
+      const duplicateValueCode = rows.some(r => Number(r.LookupCodeID) !== currentId && String(r.GroupCode || '').toUpperCase() === group && String(r.ValueCode || '').toUpperCase() === valueCode);
+      if (duplicateValueCode) { showMessage('Value Code must be unique within the supplied Group Code.'); return; }
       if (isChange) {
         const id = Number(record.LookupCodeID);
         const index = rows.findIndex(r => Number(r.LookupCodeID) === id);
@@ -427,7 +548,15 @@
       if (event.target.dataset.action === 'add') displayAddForm('add');
       else if (event.target.dataset.action === 'change') displayAddForm('change');
       else if (event.target.dataset.action === 'delete') deleteSelectedStore();
-      else closeActions();
+      else if (event.target.textContent === 'Export') {
+        closeActions();
+        if (activeScreen === 'Purchases') exportPurchasesCsv();
+        else showMessage('Export is available when the Purchases screen is active.');
+      } else if (event.target.textContent === 'Import') {
+        closeActions();
+        if (activeScreen === 'Purchases') importPurchasesFromDirectory();
+        else showMessage('Import is available when the Purchases screen is active.');
+      } else closeActions();
     }
   });
 
