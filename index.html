@@ -52,7 +52,7 @@
 <header class="app-header">
   <div class="title-row">
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
-    <div id="version" class="version">v7</div>
+    <div id="version" class="version">v8</div>
   </div>
   <nav class="main-menu" aria-label="Main menu">
     <div class="menu-wrap" id="actionsWrap">
@@ -60,7 +60,7 @@
       <div class="submenu" id="actionsMenu" role="menu" aria-label="Actions menu">
         <button role="menuitem" data-action="add">Add</button>
         <button role="menuitem" data-action="change">Change</button>
-        <button role="menuitem">Delete</button>
+        <button role="menuitem" data-action="delete">Delete</button>
         <div class="separator" role="separator"></div>
         <button role="menuitem">Import</button>
         <button role="menuitem">Export</button>
@@ -115,15 +115,16 @@
   }
 
 
-  function showMessage(message) {
+  function showMessage(message, buttons = [{label:'OK', action:()=>{}}]) {
     const existing = document.getElementById('appMessage');
     if (existing) existing.remove();
     const box = document.createElement('div');
     box.id = 'appMessage';
     box.style.cssText = 'position:fixed;left:16px;right:16px;top:50%;transform:translateY(-50%);z-index:2000;background:white;border:1px solid #9ca3af;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.25);padding:18px;max-width:520px;margin:auto;';
-    box.innerHTML = '<div style="font-size:16px;line-height:1.5;margin-bottom:14px">'+message+'</div><button id="messageOk" class="form-button">OK</button>';
+    box.innerHTML = '<div style="font-size:16px;line-height:1.5;margin-bottom:14px">'+message+'</div><div style="display:flex;justify-content:center;gap:12px" id="messageButtons"></div>';
     document.body.appendChild(box);
-    document.getElementById('messageOk').addEventListener('click', () => box.remove());
+    const buttonArea = document.getElementById('messageButtons');
+    buttons.forEach((b, i) => { const btn=document.createElement('button'); btn.className='form-button'; btn.textContent=b.label; btn.id='messageBtn'+i; btn.addEventListener('click',()=>{ box.remove(); b.action(); }); buttonArea.appendChild(btn); });
   }
 
   function displayAddForm(mode = 'add') {
@@ -209,6 +210,38 @@
     }
   }
 
+
+  function deleteSelectedStore() {
+    closeActions();
+    if (activeScreen !== 'Stores' || selectedStoreId == null) {
+      showMessage('Please select a Store record before choosing Delete.');
+      return;
+    }
+    const deleteId = Number(selectedStoreId);
+    const stores = getStores();
+    const store = stores.find(r => Number(r.StoreID) === deleteId);
+    if (!store) {
+      showMessage('The selected Store record could not be found.');
+      return;
+    }
+    showMessage('Are you sure you want to Delete this record?', [
+      {label:'Yes', action:() => {
+        // Purchases and Usage tables will provide related-record checks when implemented.
+        const currentStores = getStores();
+        const index = currentStores.findIndex(r => Number(r.StoreID) === deleteId);
+        if (index >= 0) {
+          currentStores.splice(index, 1);
+          saveStores(currentStores);
+          selectedStoreId = null;
+          displayList();
+        } else {
+          showMessage('The selected Store record could not be found.', [{label:'Cancel', action:displayList}]);
+        }
+      }},
+      {label:'No', action:displayList}
+    ]);
+  }
+
   actionsButton.addEventListener('click', event => {
     event.stopPropagation();
     const open = actionsMenu.classList.toggle('open');
@@ -220,6 +253,7 @@
     if (event.target.matches('button')) {
       if (event.target.dataset.action === 'add') displayAddForm('add');
       else if (event.target.dataset.action === 'change') displayAddForm('change');
+      else if (event.target.dataset.action === 'delete') deleteSelectedStore();
       else closeActions();
     }
   });
