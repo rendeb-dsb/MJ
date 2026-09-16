@@ -46,7 +46,7 @@
   .form-button.cancel { background:white; }
   .notice { padding:20px 16px; color:#6b7280; }
   .purchase-adjusters { display:flex; gap:8px; margin:2px 0 20px; }
-  .small-button { width:36px; height:32px; border:1px solid #9ca3af; border-radius:5px; background:#f3f4f6; font-size:20px; line-height:1; cursor:pointer; }
+  .small-button { width:18px; height:16px; border:1px solid #9ca3af; border-radius:5px; background:#f3f4f6; font-size:12px; line-height:1; cursor:pointer; }
   .purchase-section-title { margin-top:4px; margin-bottom:8px; }
   .purchase-product-list { border:1px solid var(--border); border-radius:6px; overflow:hidden; }
   .form-button:disabled { opacity:.55; cursor:default; }
@@ -57,7 +57,7 @@
 <header class="app-header">
   <div class="title-row">
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
-    <div id="version" class="version">v9</div>
+    <div id="version" class="version">v10</div>
   </div>
   <nav class="main-menu" aria-label="Main menu">
     <div class="menu-wrap" id="actionsWrap">
@@ -153,7 +153,7 @@
               <input class="form-input purchase-date" type="text" inputmode="numeric" maxlength="10" aria-label="Date" value="${defaultDate}">
             </div>
             <div class="purchase-adjusters">
-              <button type="button" class="small-button" aria-label="Plus">+</button>
+              <button type="button" class="small-button" id="purchasePlus" aria-label="Plus">+</button>
               <button type="button" class="small-button" aria-label="Minus">-</button>
             </div>
             <h2 class="form-title purchase-section-title">Purchases</h2>
@@ -176,6 +176,7 @@
       document.getElementById('saveButton').disabled = true;
       document.getElementById('saveButton').setAttribute('aria-disabled', 'true');
       document.getElementById('cancelButton').addEventListener('click', () => displayList());
+      document.getElementById('purchasePlus').addEventListener('click', () => displayAddProductForm());
 
       const dateInput = document.querySelector('.purchase-date');
       dateInput.addEventListener('input', () => {
@@ -212,6 +213,25 @@
       mainContent.innerHTML = `<section class="content-card"><div class="form-area"><h2 class="form-title">${activeScreen}</h2><div class="notice">No ${activeScreen} fields have been defined yet.</div><div class="form-actions"><button class="form-button save" id="saveButton" disabled>Save</button><button class="form-button cancel" id="cancelButton">Cancel</button></div></div></section>`;
       document.getElementById('cancelButton').addEventListener('click', displayList);
     }
+  }
+
+  function displayAddProductForm() {
+    closeActions();
+    mainContent.innerHTML = `
+      <section class="content-card">
+        <div class="form-area">
+          <h2 class="form-title">Add Product Purchased</h2>
+          <div class="form-row"><span class="form-label">Product</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="Product"></div>
+          <div class="form-row"><span class="form-label">Attributes</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="Attributes"></div>
+          <div class="form-row"><span class="form-label">Cost</span><span class="form-colon">:</span><input class="form-input" type="text" inputmode="decimal" aria-label="Cost"></div>
+          <div class="form-row"><span class="form-label">Quantity</span><span class="form-colon">:</span><input class="form-input" type="text" inputmode="numeric" aria-label="Quantity" value="1"></div>
+          <div class="form-row"><span class="form-label">Type</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="Type" maxlength="1" value=""></div>
+          <div class="form-actions"><button class="form-button save" id="productSaveButton">Save</button><button class="form-button cancel" id="productCancelButton">Cancel</button></div>
+        </div>
+      </section>`;
+    document.getElementById('productSaveButton').disabled = true;
+    document.getElementById('productSaveButton').setAttribute('aria-disabled', 'true');
+    document.getElementById('productCancelButton').addEventListener('click', () => displayAddForm('add'));
   }
 
   function deleteSelectedStore() {
