@@ -62,7 +62,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v14</div>
+    <div id="version" class="version">v15</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
     <button class="gear-button" id="gearButton" aria-label="Application Codes" title="Application Codes">⚙</button>
   </div>
@@ -280,7 +280,6 @@
       if (!orderText || !/^[0-9]{1,3}$/.test(orderText) || Number(orderText) < 0 || Number(orderText) > 999) { showMessage('Order is required and must be a number from 0 to 999.'); return; }
       if (!valueCode) { showMessage('Value Code is required.'); return; }
       if (valueCode.length > 5) { showMessage('Value Code may contain no more than 5 characters.'); return; }
-      if (!value) { showMessage('Value is required.'); return; }
       const rows=getLookupCodes();
       const nextId=rows.reduce((m,r)=>Math.max(m,Number(r.LookupCodeID)||0),0)+1;
       rows.push({LookupCodeID:nextId, GroupCode:group, Order:Number(orderText), ValueCode:valueCode, Value:value});
@@ -319,6 +318,32 @@
       </section>`;
     document.querySelectorAll('input[name="lookupSelect"]').forEach(r => r.addEventListener('change', e => selectedLookupId=Number(e.target.value)));
     document.getElementById('codesPlus').addEventListener('click', displayApplicationCodeAdd);
+    document.getElementById('codesMinus').addEventListener('click', () => {
+      if (selectedLookupId == null) {
+        showMessage('Please select an Application Code record before choosing Delete.');
+        return;
+      }
+      const deleteId = Number(selectedLookupId);
+      const rowsNow = getLookupCodes();
+      if (!rowsNow.some(r => Number(r.LookupCodeID) === deleteId)) {
+        selectedLookupId = null;
+        displayApplicationCodes();
+        return;
+      }
+      showMessage('Are you sure you want to delete this record?', [
+        {label:'Yes', action:() => {
+          const currentRows = getLookupCodes();
+          const index = currentRows.findIndex(r => Number(r.LookupCodeID) === deleteId);
+          if (index >= 0) {
+            currentRows.splice(index, 1);
+            saveLookupCodes(currentRows);
+          }
+          selectedLookupId = null;
+          displayApplicationCodes();
+        }},
+        {label:'No', action:displayApplicationCodes}
+      ]);
+    });
     document.getElementById('codesCloseButton').addEventListener('click', () => {
       activeScreen = previousScreen;
       buttons.forEach(b => b.classList.toggle('active', b.dataset.screen === activeScreen));
