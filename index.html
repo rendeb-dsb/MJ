@@ -66,7 +66,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v17</div>
+    <div id="version" class="version">v19</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
     <button class="gear-button" id="gearButton" aria-label="Application Codes" title="Application Codes">⚙</button>
   </div>
@@ -352,6 +352,93 @@
     }
   }
 
+  function exportApplicationCodesCsv() {
+    const rows = getLookupCodes();
+    const headers = ['LookupCodeID','GroupCode','Order','ValueCode','Value'];
+    const csv = [headers, ...rows.map(r => [r.LookupCodeID ?? '', r.GroupCode ?? '', r.Order ?? '', r.ValueCode ?? '', r.Value ?? ''])]
+      .map(row => row.map(csvEscape).join(',')).join('\r\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'ApplicationCodes.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function showApplicationCodeCsvFileChooser(files) {
+    const csvFiles = Array.from(files).filter(f => /\.csv$/i.test(f.name));
+    if (!csvFiles.length) {
+      showMessage('No CSV files were found in the selected Download directory.');
+      return;
+    }
+    const box = document.createElement('div');
+    box.id = 'appCsvChooser';
+    box.style.cssText = 'position:fixed;left:16px;right:16px;top:50%;transform:translateY(-50%);z-index:2100;background:white;border:1px solid #9ca3af;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.25);padding:18px;max-width:520px;margin:auto;';
+    box.innerHTML = '<div style="font-size:18px;font-weight:700">Select CSV file</div><div style="font-size:14px;margin-top:6px;color:#6b7280">CSV files in the selected Download directory:</div><div class="csv-file-list"></div><div style="display:flex;justify-content:center"><button class="form-button cancel" id="csvChooserCancel">Cancel</button></div>';
+    document.body.appendChild(box);
+    const list = box.querySelector('.csv-file-list');
+    csvFiles.forEach(file => {
+      const btn = document.createElement('button');
+      btn.className = 'csv-file-button';
+      btn.textContent = file.name;
+      btn.addEventListener('click', async () => {
+        box.remove();
+        await importApplicationCodesCsv(file);
+      });
+      list.appendChild(btn);
+    });
+    document.getElementById('csvChooserCancel').addEventListener('click', () => box.remove());
+  }
+
+  async function importApplicationCodesCsv(file) {
+    try {
+      const rows = parseCsv(await file.text());
+      if (!rows.length) { showMessage('The selected CSV file is empty.'); return; }
+      const headers = rows[0].map(h => h.trim());
+      const required = ['GroupCode','Order','ValueCode'];
+      if (!required.every(h => headers.includes(h))) {
+        showMessage('The selected CSV file does not contain the required Application Codes columns: GroupCode, Order, ValueCode.'); return;
+      }
+      const index = Object.fromEntries(headers.map((h,i)=>[h,i]));
+      const imported = [];
+      for (let i = 1; i < rows.length; i++) {
+        if (rows[i].every(v => String(v).trim() === '')) continue;
+        const line = rows[i];
+        const group = String(line[index.GroupCode] ?? '').trim();
+        const orderText = String(line[index.Order] ?? '').trim();
+        const valueCode = String(line[index.ValueCode] ?? '').trim();
+        const value = index.Value === undefined ? '' : String(line[index.Value] ?? '').trim();
+        if (!/^[A-Z0-9]{2}$/.test(group)) { showMessage(`Import error on CSV row ${i + 1}: GroupCode must contain exactly 2 uppercase letters or numbers.`); return; }
+        if (!/^[0-9]{1,3}$/.test(orderText) || Number(orderText) < 0 || Number(orderText) > 999) { showMessage(`Import error on CSV row ${i + 1}: Order must be a number from 0 to 999.`); return; }
+        if (!/^[A-Z0-9]{1,5}$/.test(valueCode)) { showMessage(`Import error on CSV row ${i + 1}: ValueCode must contain 1 to 5 uppercase letters or numbers.`); return; }
+        if (imported.some(r => r.GroupCode === group && Number(r.Order) === Number(orderText))) { showMessage(`Import error on CSV row ${i + 1}: Order must be unique within the supplied GroupCode.`); return; }
+        if (imported.some(r => r.GroupCode === group && r.ValueCode === valueCode)) { showMessage(`Import error on CSV row ${i + 1}: ValueCode must be unique within the supplied GroupCode.`); return; }
+        imported.push({LookupCodeID:0, GroupCode:group, Order:Number(orderText), ValueCode:valueCode, Value:value});
+      }
+      imported.forEach((r,i) => r.LookupCodeID = i + 1);
+      saveLookupCodes(imported);
+      selectedLookupId = imported.length ? imported[0].LookupCodeID : null;
+      displayApplicationCodes();
+      showMessage(`${imported.length} Application Code record${imported.length === 1 ? '' : 's'} imported.`);
+    } catch (err) { showMessage('The selected CSV file could not be read.'); }
+  }
+
+  function importApplicationCodesFromDownload() {
+    saveLookupCodes([]);
+    selectedLookupId = null;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.setAttribute('webkitdirectory', '');
+    input.setAttribute('directory', '');
+    input.accept = '.csv,text/csv';
+    input.addEventListener('change', () => showApplicationCodeCsvFileChooser(input.files));
+    input.click();
+  }
+
   function importPurchasesFromDirectory() {
     const input = document.createElement('input');
     input.type = 'file';
@@ -551,11 +638,13 @@
       else if (event.target.textContent === 'Export') {
         closeActions();
         if (activeScreen === 'Purchases') exportPurchasesCsv();
-        else showMessage('Export is available when the Purchases screen is active.');
+        else if (activeScreen === 'Application Codes') exportApplicationCodesCsv();
+        else showMessage('Export is available when the Purchases or Application Codes screen is active.');
       } else if (event.target.textContent === 'Import') {
         closeActions();
         if (activeScreen === 'Purchases') importPurchasesFromDirectory();
-        else showMessage('Import is available when the Purchases screen is active.');
+        else if (activeScreen === 'Application Codes') importApplicationCodesFromDownload();
+        else showMessage('Import is available when the Purchases or Application Codes screen is active.');
       } else closeActions();
     }
   });
