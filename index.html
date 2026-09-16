@@ -45,6 +45,11 @@
   .form-button.save { background:#e5e7eb; }
   .form-button.cancel { background:white; }
   .notice { padding:20px 16px; color:#6b7280; }
+  .purchase-adjusters { display:flex; gap:8px; margin:2px 0 20px; }
+  .small-button { width:36px; height:32px; border:1px solid #9ca3af; border-radius:5px; background:#f3f4f6; font-size:20px; line-height:1; cursor:pointer; }
+  .purchase-section-title { margin-top:4px; margin-bottom:8px; }
+  .purchase-product-list { border:1px solid var(--border); border-radius:6px; overflow:hidden; }
+  .form-button:disabled { opacity:.55; cursor:default; }
   @media (min-width:600px) { .screen-title { font-size:32px; } .version { font-size:11px; } }
 </style>
 </head>
@@ -52,7 +57,7 @@
 <header class="app-header">
   <div class="title-row">
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
-    <div id="version" class="version">v8</div>
+    <div id="version" class="version">v9</div>
   </div>
   <nav class="main-menu" aria-label="Main menu">
     <div class="menu-wrap" id="actionsWrap">
@@ -90,6 +95,8 @@
   }
 
   const STORAGE_KEY = 'mj_stores';
+  const PURCHASES_KEY = 'mj_purchases';
+  const PRODUCTS_KEY = 'mj_products';
   const STATE_CODES = new Set('AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY'.split(' '));
 
   function getStores() {
@@ -129,87 +136,83 @@
 
   function displayAddForm(mode = 'add') {
     closeActions();
-    if (mode === 'change' && activeScreen === 'Stores' && selectedStoreId == null) {
-      showMessage('Please select a Store record before choosing Change.');
-      return;
-    }
-    const editingId = mode === 'change' ? Number(selectedStoreId) : null;
-    const editingStore = editingId != null ? getStores().find(r => Number(r.StoreID) === editingId) : null;
-    if (mode === 'change' && !editingStore) {
-      showMessage('The selected Store record could not be found.');
-      return;
-    }
-    const heading = mode === 'change' ? 'Stores' : activeScreen;
-    if (activeScreen === 'Stores') {
-      const v = editingStore || {};
+    if (mode !== 'add') return;
+
+    if (activeScreen === 'Purchases') {
+      const today = new Date();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      const yyyy = today.getFullYear();
+      const defaultDate = `${mm}/${dd}/${yyyy}`;
+
       mainContent.innerHTML = `
         <section class="content-card">
           <div class="form-area">
-            <h2 class="form-title">${heading}</h2>
-            <div class="form-row"><span class="form-label">Name</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="Name" value="${escapeHtml(v.Name || '')}"></div>
-            <div class="form-row"><span class="form-label">Address1</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="Address1" value="${escapeHtml(v.Address1 || '')}"></div>
-            <div class="form-row"><span class="form-label">Address2</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="Address2" value="${escapeHtml(v.Address2 || '')}"></div>
-            <div class="form-row"><span class="form-label">City</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="City" value="${escapeHtml(v.City || '')}"></div>
-            <div class="form-row"><span class="form-label">State</span><span class="form-colon">:</span><input class="form-input state-input" type="text" maxlength="2" aria-label="State" value="${escapeHtml(v.State || '')}" required autocomplete="address-level1"></div>
-            <div class="form-row"><span class="form-label">Zip</span><span class="form-colon">:</span><input class="form-input zip-input" type="text" inputmode="numeric" maxlength="5" aria-label="Zip" value="${escapeHtml(v.Zip || '')}" required autocomplete="postal-code"></div>
+            <div class="form-row">
+              <span class="form-label">Date</span><span class="form-colon">:</span>
+              <input class="form-input purchase-date" type="text" inputmode="numeric" maxlength="10" aria-label="Date" value="${defaultDate}">
+            </div>
+            <div class="purchase-adjusters">
+              <button type="button" class="small-button" aria-label="Plus">+</button>
+              <button type="button" class="small-button" aria-label="Minus">-</button>
+            </div>
+            <h2 class="form-title purchase-section-title">Purchases</h2>
+            <div class="purchase-product-list">
+              <table style="width:100%;border-collapse:collapse">
+                <thead><tr>
+                  <th aria-label="Select" style="width:42px;padding:10px;border-bottom:1px solid #d1d5db"></th>
+                  <th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Product</th>
+                </tr></thead>
+                <tbody><tr><td colspan="2" class="empty-message" style="padding:28px 10px">No products have been added.</td></tr></tbody>
+              </table>
+            </div>
             <div class="form-actions">
               <button class="form-button save" id="saveButton">Save</button>
               <button class="form-button cancel" id="cancelButton">Cancel</button>
             </div>
           </div>
         </section>`;
-    } else {
-      mainContent.innerHTML = `
-        <section class="content-card">
-          <div class="form-area">
-            <h2 class="form-title">${activeScreen}</h2>
-            <div class="notice">No ${activeScreen} fields have been defined yet.</div>
-            <div class="form-actions">
-              <button class="form-button save" id="saveButton">Save</button>
-              <button class="form-button cancel" id="cancelButton">Cancel</button>
-            </div>
-          </div>
-        </section>`;
-    }
-    document.getElementById('cancelButton').addEventListener('click', () => {
-      if (mode === 'change') selectedStoreId = editingId;
-      displayList();
-    });
-    const saveButton = document.getElementById('saveButton');
-    if (activeScreen === 'Stores') {
-      const stateInput = document.querySelector('.state-input');
-      const zipInput = document.querySelector('.zip-input');
-      stateInput.addEventListener('input', () => { stateInput.value = stateInput.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0,2); });
-      zipInput.addEventListener('input', () => { zipInput.value = zipInput.value.replace(/[^0-9]/g, '').slice(0,5); });
-      saveButton.addEventListener('click', () => {
-        const inputs = mainContent.querySelectorAll('.form-input');
-        const values = {}; inputs.forEach(i => values[i.getAttribute('aria-label')] = i.value.trim());
-        const errors = [];
-        if (values.Name.length < 3) errors.push('Name is required and must be at least 3 characters.');
-        if (!values.Address1) errors.push('Address1 is required.');
-        if (values.City.length < 3) errors.push('City is required and must be at least 3 characters.');
-        if (!values.State) errors.push('State is required.');
-        else if (!STATE_CODES.has(values.State)) errors.push('State must be a valid 2-character state code.');
-        if (!values.Zip) errors.push('Zip is required.');
-        else if (!/^\d{5}$/.test(values.Zip)) errors.push('Zip must contain exactly 5 digits.');
-        if (errors.length) { showMessage(errors.join('<br>')); return; }
-        const stores = getStores();
-        if (mode === 'change') {
-          const index = stores.findIndex(r => Number(r.StoreID) === editingId);
-          if (index < 0) { showMessage('The selected Store record could not be found.'); return; }
-          stores[index] = {StoreID: editingId, Name:values.Name, Address1:values.Address1, Address2:values.Address2, City:values.City, State:values.State, Zip:values.Zip};
-          selectedStoreId = editingId;
-        } else {
-          const nextId = stores.reduce((max, r) => Math.max(max, Number(r.StoreID) || 0), 0) + 1;
-          stores.push({StoreID:nextId, Name:values.Name, Address1:values.Address1, Address2:values.Address2, City:values.City, State:values.State, Zip:values.Zip});
-          selectedStoreId = nextId;
-        }
-        saveStores(stores);
-        displayList();
+
+      document.getElementById('saveButton').disabled = true;
+      document.getElementById('saveButton').setAttribute('aria-disabled', 'true');
+      document.getElementById('cancelButton').addEventListener('click', () => displayList());
+
+      const dateInput = document.querySelector('.purchase-date');
+      dateInput.addEventListener('input', () => {
+        let digits = dateInput.value.replace(/\D/g, '').slice(0, 8);
+        let out = '';
+        if (digits.length > 0) out += digits.slice(0, 2);
+        if (digits.length > 2) out += '/' + digits.slice(2, 4);
+        if (digits.length > 4) out += '/' + digits.slice(4, 8);
+        dateInput.value = out;
       });
+      return;
+    }
+
+    if (activeScreen === 'Stores') {
+      const v = {};
+      mainContent.innerHTML = `
+        <section class="content-card">
+          <div class="form-area">
+            <h2 class="form-title">Stores</h2>
+            <div class="form-row"><span class="form-label">Name</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="Name"></div>
+            <div class="form-row"><span class="form-label">Address1</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="Address1"></div>
+            <div class="form-row"><span class="form-label">Address2</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="Address2"></div>
+            <div class="form-row"><span class="form-label">City</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="City"></div>
+            <div class="form-row"><span class="form-label">State</span><span class="form-colon">:</span><input class="form-input state-input" type="text" maxlength="2" aria-label="State"></div>
+            <div class="form-row"><span class="form-label">Zip</span><span class="form-colon">:</span><input class="form-input zip-input" type="text" inputmode="numeric" maxlength="5" aria-label="Zip"></div>
+            <div class="form-actions"><button class="form-button save" id="saveButton">Save</button><button class="form-button cancel" id="cancelButton">Cancel</button></div>
+          </div>
+        </section>`;
+      document.getElementById('cancelButton').addEventListener('click', displayList);
+      const stateInput=document.querySelector('.state-input'), zipInput=document.querySelector('.zip-input');
+      stateInput.addEventListener('input',()=>stateInput.value=stateInput.value.toUpperCase().replace(/[^A-Z]/g,'').slice(0,2));
+      zipInput.addEventListener('input',()=>zipInput.value=zipInput.value.replace(/[^0-9]/g,'').slice(0,5));
+    } else {
+      mainContent.innerHTML = `<section class="content-card"><div class="form-area"><h2 class="form-title">${activeScreen}</h2><div class="notice">No ${activeScreen} fields have been defined yet.</div><div class="form-actions"><button class="form-button save" id="saveButton" disabled>Save</button><button class="form-button cancel" id="cancelButton">Cancel</button></div></div></section>`;
+      document.getElementById('cancelButton').addEventListener('click', displayList);
     }
   }
-
 
   function deleteSelectedStore() {
     closeActions();
