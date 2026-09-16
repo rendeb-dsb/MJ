@@ -1,3 +1,3 @@
-MJ Version 11
+MJ Version 12
 
-Updated Purchases Add screen: plus button opens Add Product Purchased. Product fields are displayed with Save disabled and Cancel returning to the parent Purchases Add screen. Plus and minus buttons are half their previous size.
+Updated header layout: version number is far left on the title line and the Application Codes gear is far right on the same title line. The Usage menu no longer contains the gear.

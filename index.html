@@ -15,7 +15,7 @@
   .app-header { position:sticky; top:0; z-index:1000; background:var(--header-bg); color:white; box-shadow:0 2px 5px rgba(0,0,0,.2); }
   .title-row { position:relative; min-height:58px; display:flex; align-items:center; justify-content:center; padding:8px 72px; }
   .screen-title { font-size:28px; font-weight:700; line-height:1.1; text-align:center; }
-  .version { position:absolute; right:12px; top:50%; transform:translateY(-50%); font-size:9.5px; font-weight:400; white-space:nowrap; }
+  .version { position:absolute; left:12px; top:50%; transform:translateY(-50%); font-size:9.5px; font-weight:400; white-space:nowrap; }
   .main-menu { display:flex; width:100%; background:var(--menu-bg); overflow:visible; }
   .menu-wrap { position:relative; flex:1 0 25%; min-width:88px; }
   .menu-wrap .menu-item { width:100%; }
@@ -23,8 +23,7 @@
   .menu-item:hover, .menu-item:focus-visible { background:var(--menu-hover); outline:none; }
   .menu-item.active { background:#111827; font-weight:700; }
   .usage-menu-wrap { position:relative; flex:1 0 25%; min-width:88px; }
-  .usage-menu-wrap .menu-item { width:100%; padding-right:34px; }
-  .gear-button { position:absolute; right:7px; top:50%; transform:translateY(-50%); border:0; background:transparent; color:white; font-size:18px; line-height:1; padding:2px; cursor:pointer; z-index:2; }
+  .gear-button { position:absolute; right:12px; top:50%; transform:translateY(-50%); border:0; background:transparent; color:white; font-size:20px; line-height:1; padding:2px; cursor:pointer; z-index:2; }
   .gear-button:hover, .gear-button:focus-visible { opacity:.8; outline:none; }
   .submenu { display:none; position:absolute; left:0; top:100%; min-width:170px; background:white; border:1px solid var(--border); border-top:0; box-shadow:0 4px 10px rgba(0,0,0,.22); z-index:1100; }
   .submenu.open { display:block; }
@@ -61,7 +60,7 @@
 <header class="app-header">
   <div class="title-row">
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
-    <div id="version" class="version">v11</div>
+    <div id="version" class="version">v12</div>
   </div>
   <nav class="main-menu" aria-label="Main menu">
     <div class="menu-wrap" id="actionsWrap">
@@ -79,8 +78,9 @@
     </div>
     <button class="menu-item active" data-screen="Stores">Stores</button>
     <button class="menu-item" data-screen="Purchases">Purchases</button>
-    <div class="usage-menu-wrap"><button class="menu-item" data-screen="Usage">Usage</button><button class="gear-button" id="gearButton" aria-label="Application Codes" title="Application Codes">⚙</button></div>
+    <div class="usage-menu-wrap"><button class="menu-item" data-screen="Usage">Usage</button></div>
   </nav>
+  <button class="gear-button" id="gearButton" aria-label="Application Codes" title="Application Codes">⚙</button>
 </header>
 <main id="mainContent"></main>
 <script>
