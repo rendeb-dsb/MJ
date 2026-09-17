@@ -51,10 +51,12 @@
   .form-button.save { background:#e5e7eb; }
   .form-button.cancel { background:white; }
   .notice { padding:20px 16px; color:#6b7280; }
-  .purchase-adjusters { display:flex; gap:8px; margin:2px 0 20px; }
+  .purchase-adjusters { display:flex; gap:14px; margin:2px 0 20px; }
   .small-button { width:18px; height:16px; border:1px solid #9ca3af; border-radius:5px; background:#f3f4f6; font-size:12px; line-height:1; cursor:pointer; }
   .purchase-section-title { margin-top:4px; margin-bottom:8px; }
   .purchase-product-list { border:1px solid var(--border); border-radius:6px; overflow:hidden; }
+  .lookup-list { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .lookup-list table { min-width:640px; }
   .form-button:disabled { opacity:.55; cursor:default; }
   .csv-file-list { max-height:55vh; overflow:auto; border:1px solid var(--border); border-radius:6px; margin:12px 0; }
   .csv-file-button { display:block; width:100%; border:0; border-bottom:1px solid #e5e7eb; background:white; text-align:left; padding:12px; font-size:15px; cursor:pointer; }
@@ -66,7 +68,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v24</div>
+    <div id="version" class="version">v25</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
     <button class="gear-button" id="gearButton" aria-label="Application Codes" title="Application Codes">⚙</button>
   </div>
@@ -667,7 +669,7 @@
             <button type="button" class="small-button" id="codesChange" aria-label="Change">•</button>
           </div>
           <h2 class="form-title purchase-section-title">LookupCodes</h2>
-          <div class="purchase-product-list"><table style="width:100%;border-collapse:collapse"><thead><tr>
+          <div class="purchase-product-list lookup-list"><table style="width:100%;border-collapse:collapse"><thead><tr>
             <th aria-label="Select" style="width:42px;padding:10px;border-bottom:1px solid #d1d5db"></th>
             <th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">GroupCode</th>
             <th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Order</th>
