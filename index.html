@@ -66,7 +66,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v21</div>
+    <div id="version" class="version">v23</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
     <button class="gear-button" id="gearButton" aria-label="Application Codes" title="Application Codes">⚙</button>
   </div>
@@ -108,17 +108,102 @@
   const STORAGE_KEY = 'mj_stores';
   const PURCHASES_KEY = 'mj_purchases';
   const PRODUCTS_KEY = 'mj_products';
-  const STATE_CODES = new Set('AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY'.split(' '));
+  const LOOKUP_KEY = 'mj_lookup_codes';
+  const STATE_CODES = new Set('AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WY'.split(' '));
 
-  function getStores() {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; }
+  // Versioned persistence: IndexedDB is authoritative. Existing localStorage
+  // data is migrated automatically on first run and retained as a backup.
+  const DB_NAME = 'MJDB';
+  const DB_VERSION = 1;
+  const IDB_TABLES = {
+    stores:    {name:'stores', key:'StoreID', localKey:STORAGE_KEY},
+    purchases: {name:'purchases', key:'PurchaseID', localKey:PURCHASES_KEY},
+    products:  {name:'products', key:'ProductID', localKey:PRODUCTS_KEY},
+    lookupCodes:{name:'lookupCodes', key:'LookupCodeID', localKey:LOOKUP_KEY}
+  };
+  let mjDB = null;
+  let dataCache = {stores:[], purchases:[], products:[], lookupCodes:[]};
+
+  function parseLocalBackup(key) {
+    try {
+      const value = JSON.parse(localStorage.getItem(key));
+      return Array.isArray(value) ? value : [];
+    } catch { return []; }
   }
 
-  function saveStores(stores) { localStorage.setItem(STORAGE_KEY, JSON.stringify(stores)); }
+  function openMJDatabase() {
+    return new Promise((resolve, reject) => {
+      if (!('indexedDB' in window)) { reject(new Error('IndexedDB is not supported.')); return; }
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
+      request.onupgradeneeded = event => {
+        const db = event.target.result;
+        Object.values(IDB_TABLES).forEach(t => {
+          if (!db.objectStoreNames.contains(t.name)) db.createObjectStore(t.name, {keyPath:t.key});
+        });
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error || new Error('Unable to open database.'));
+    });
+  }
 
-  function getPurchases() { try { return JSON.parse(localStorage.getItem(PURCHASES_KEY)) || []; } catch { return []; } }
-  function savePurchases(rows) { localStorage.setItem(PURCHASES_KEY, JSON.stringify(rows)); }
+  function readAllFromIDB(storeName) {
+    return new Promise((resolve, reject) => {
+      const request = mjDB.transaction(storeName, 'readonly').objectStore(storeName).getAll();
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error || new Error('Unable to read database.'));
+    });
+  }
 
+  function replaceIDBStore(storeName, rows) {
+    return new Promise((resolve, reject) => {
+      const tx = mjDB.transaction(storeName, 'readwrite');
+      const store = tx.objectStore(storeName);
+      store.clear();
+      rows.forEach(row => store.put(row));
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error || new Error('Unable to save database.'));
+      tx.onabort = () => reject(tx.error || new Error('Unable to save database.'));
+    });
+  }
+
+  async function initPersistence() {
+    try {
+      mjDB = await openMJDatabase();
+      for (const [cacheName, table] of Object.entries(IDB_TABLES)) {
+        let rows = await readAllFromIDB(table.name);
+        if (!rows.length) {
+          const backup = parseLocalBackup(table.localKey);
+          if (backup.length) {
+            rows = backup;
+            await replaceIDBStore(table.name, rows);
+          }
+        }
+        dataCache[cacheName] = rows;
+      }
+      window.mjPersistenceReady = true;
+    } catch (err) {
+      // Keep the app usable on browsers without IndexedDB; localStorage is the
+      // compatibility fallback, while normal operation uses IndexedDB.
+      dataCache.stores = parseLocalBackup(STORAGE_KEY);
+      dataCache.purchases = parseLocalBackup(PURCHASES_KEY);
+      dataCache.products = parseLocalBackup(PRODUCTS_KEY);
+      dataCache.lookupCodes = parseLocalBackup(LOOKUP_KEY);
+      window.mjPersistenceReady = false;
+    }
+  }
+
+  function persistTable(cacheName, rows) {
+    dataCache[cacheName] = rows;
+    const table = IDB_TABLES[cacheName];
+    if (mjDB) replaceIDBStore(table.name, rows).catch(() => {});
+    // Retain a local backup for migration/recovery; IndexedDB remains authoritative.
+    try { localStorage.setItem(table.localKey, JSON.stringify(rows)); } catch {}
+  }
+
+  function getStores() { return dataCache.stores || []; }
+  function saveStores(stores) { persistTable('stores', stores); }
+  function getPurchases() { return dataCache.purchases || []; }
+  function savePurchases(rows) { persistTable('purchases', rows); }
   function displayList() {
     const stores = activeScreen === 'Stores' ? getStores() : [];
     let body = '';
@@ -250,13 +335,10 @@
     document.getElementById('productCancelButton').addEventListener('click', () => displayAddForm('add'));
   }
 
-  const LOOKUP_KEY = 'mj_lookup_codes';
   let selectedLookupId = null;
 
-  function getLookupCodes() {
-    try { return JSON.parse(localStorage.getItem(LOOKUP_KEY)) || []; } catch { return []; }
-  }
-  function saveLookupCodes(rows) { localStorage.setItem(LOOKUP_KEY, JSON.stringify(rows)); }
+  function getLookupCodes() { return dataCache.lookupCodes || []; }
+  function saveLookupCodes(rows) { persistTable('lookupCodes', rows); }
 
   function csvEscape(value) {
     const text = String(value ?? '');
@@ -280,6 +362,17 @@
     }
     if (field.length || row.length) { row.push(field); rows.push(row); }
     return rows;
+  }
+
+  function csvRowText(row) {
+    return row.map(v => csvEscape(v)).join(',');
+  }
+
+  function showCsvImportError(rowNumber, row, element, value, reason) {
+    showMessage(`Import error on CSV row ${rowNumber}.<br><br>` +
+      `<strong>CSV row:</strong> ${escapeHtml(csvRowText(row))}<br>` +
+      `<strong>Invalid element:</strong> ${escapeHtml(element)} = ${escapeHtml(String(value ?? ''))}<br>` +
+      `<strong>Reason:</strong> ${escapeHtml(reason)}`);
   }
 
   function exportPurchasesCsv() {
@@ -336,12 +429,23 @@
       for (let i = 1; i < rows.length; i++) {
         if (rows[i].every(v => String(v).trim() === '')) continue;
         const line = rows[i];
-        const id = Number(String(line[index.PurchaseID] ?? '').trim());
-        const storeId = Number(String(line[index.StoreID] ?? '').trim());
+        if (line.length !== headers.length) {
+          showCsvImportError(i + 1, line, 'CSV row', csvRowText(line), `Expected ${headers.length} fields but found ${line.length}.`);
+          return;
+        }
+        const idText = String(line[index.PurchaseID] ?? '').trim();
+        const storeText = String(line[index.StoreID] ?? '').trim();
         const date = String(line[index.PurchDate] ?? '').trim();
-        if (!Number.isInteger(id) || id < 1) { showMessage(`Import error on CSV row ${i + 1}: PurchaseID must be a positive integer.`); return; }
-        if (!Number.isInteger(storeId) || storeId < 1) { showMessage(`Import error on CSV row ${i + 1}: StoreID must be a positive integer.`); return; }
-        if (!/^\d{2}\/\d{2}\/\d{4}$/.test(date)) { showMessage(`Import error on CSV row ${i + 1}: PurchDate must be in mm/dd/yyyy format.`); return; }
+        const id = Number(idText), storeId = Number(storeText);
+        if (!/^\d+$/.test(idText) || !Number.isInteger(id) || id < 1) {
+          showCsvImportError(i + 1, line, 'PurchaseID', idText, 'PurchaseID must be a positive integer.'); return;
+        }
+        if (!/^\d+$/.test(storeText) || !Number.isInteger(storeId) || storeId < 1) {
+          showCsvImportError(i + 1, line, 'StoreID', storeText, 'StoreID must be a positive integer.'); return;
+        }
+        if (!/^\d{2}\/\d{2}\/\d{4}$/.test(date)) {
+          showCsvImportError(i + 1, line, 'PurchDate', date, 'PurchDate must be in mm/dd/yyyy format.'); return;
+        }
         imported.push({PurchaseID:id, StoreID:storeId, PurchDate:date});
       }
       savePurchases(imported);
@@ -407,17 +511,32 @@
       for (let i = 1; i < rows.length; i++) {
         if (rows[i].every(v => String(v).trim() === '')) continue;
         const line = rows[i];
+        if (line.length !== headers.length) {
+          showCsvImportError(i + 1, line, 'CSV row', csvRowText(line), `Expected ${headers.length} fields but found ${line.length}.`);
+          return;
+        }
         const group = String(line[index.GroupCode] ?? '').trim();
         const orderText = String(line[index.Order] ?? '').trim();
         const valueCode = String(line[index.ValueCode] ?? '').trim();
         const value = index.Value === undefined ? '' : String(line[index.Value] ?? '').trim();
-        if (!/^[A-Z0-9]{2}$/.test(group)) { showMessage(`Import error on CSV row ${i + 1}: GroupCode must contain exactly 2 uppercase letters or numbers.`); return; }
-        if (!/^[0-9]{1,3}$/.test(orderText) || Number(orderText) < 0 || Number(orderText) > 999) { showMessage(`Import error on CSV row ${i + 1}: Order must be a number from 0 to 999.`); return; }
-        if (!/^[A-Z0-9]{1,5}$/.test(valueCode)) { showMessage(`Import error on CSV row ${i + 1}: ValueCode must contain 1 to 5 uppercase letters or numbers.`); return; }
-        if (imported.some(r => r.GroupCode === group && Number(r.Order) === Number(orderText))) { showMessage(`Import error on CSV row ${i + 1}: Order must be unique within the supplied GroupCode.`); return; }
-        if (imported.some(r => r.GroupCode === group && r.ValueCode === valueCode)) { showMessage(`Import error on CSV row ${i + 1}: ValueCode must be unique within the supplied GroupCode.`); return; }
+        if (!/^[A-Z0-9]{2}$/.test(group)) {
+          showCsvImportError(i + 1, line, 'GroupCode', group, 'GroupCode must contain exactly 2 uppercase letters or numbers.'); return;
+        }
+        if (!/^[0-9]{1,3}$/.test(orderText) || Number(orderText) < 0 || Number(orderText) > 999) {
+          showCsvImportError(i + 1, line, 'Order', orderText, 'Order must be a number from 0 to 999.'); return;
+        }
+        if (!/^[A-Z0-9]{1,5}$/.test(valueCode)) {
+          showCsvImportError(i + 1, line, 'ValueCode', valueCode, 'ValueCode must contain 1 to 5 uppercase letters or numbers.'); return;
+        }
+        if (imported.some(r => r.GroupCode === group && Number(r.Order) === Number(orderText))) {
+          showCsvImportError(i + 1, line, 'Order', orderText, 'Order must be unique within the supplied GroupCode.'); return;
+        }
+        if (imported.some(r => r.GroupCode === group && r.ValueCode === valueCode)) {
+          showCsvImportError(i + 1, line, 'ValueCode', valueCode, 'ValueCode must be unique within the supplied GroupCode.'); return;
+        }
         imported.push({LookupCodeID:0, GroupCode:group, Order:Number(orderText), ValueCode:valueCode, Value:value});
       }
+      // Only after the entire CSV has been successfully validated is the table replaced.
       imported.forEach((r,i) => r.LookupCodeID = i + 1);
       saveLookupCodes(imported);
       selectedLookupId = imported.length ? imported[0].LookupCodeID : null;
@@ -426,16 +545,23 @@
     } catch (err) { showMessage('The selected CSV file could not be read.'); }
   }
 
+  function isApplicationCodesScreenDisplayed() {
+    const heading = document.querySelector('#mainContent h2.form-title');
+    return !!heading && heading.textContent.trim() === 'Application Codes';
+  }
+
   function importApplicationCodesFromDownload() {
-    saveLookupCodes([]);
-    selectedLookupId = null;
     const input = document.createElement('input');
     input.type = 'file';
     input.multiple = true;
     input.setAttribute('webkitdirectory', '');
     input.setAttribute('directory', '');
     input.accept = '.csv,text/csv';
-    input.addEventListener('change', () => showApplicationCodeCsvFileChooser(input.files));
+    input.addEventListener('change', () => {
+      // Do not alter the table until the user has actually selected a CSV.
+      if (!input.files || input.files.length === 0) return;
+      showApplicationCodeCsvFileChooser(input.files);
+    });
     input.click();
   }
 
@@ -639,7 +765,7 @@
         closeActions();
         // Application Codes is opened by the Gear button and does not change
         // the active main-menu item. Check the displayed screen itself first.
-        const applicationCodesVisible = document.querySelector('.form-title')?.textContent.trim() === 'Application Codes';
+        const applicationCodesVisible = isApplicationCodesScreenDisplayed();
         if (applicationCodesVisible) exportApplicationCodesCsv();
         else if (activeScreen === 'Purchases') exportPurchasesCsv();
         else showMessage('Export is available when the Purchases or Application Codes screen is active.');
@@ -647,7 +773,7 @@
         closeActions();
         // Application Codes is opened by the Gear button and does not change
         // the active main-menu item. Check the displayed screen itself first.
-        const applicationCodesVisible = document.querySelector('.form-title')?.textContent.trim() === 'Application Codes';
+        const applicationCodesVisible = isApplicationCodesScreenDisplayed();
         if (applicationCodesVisible) importApplicationCodesFromDownload();
         else if (activeScreen === 'Purchases') importPurchasesFromDirectory();
         else showMessage('Import is available when the Purchases or Application Codes screen is active.');
@@ -670,7 +796,7 @@
     });
   });
 
-  displayList();
+  initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));

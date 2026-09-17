@@ -1,18 +1,10 @@
-MJ Version 18 PWA
+MJ Version 23 PWA
 
-Version 17 adds:
-- Uppercase validation for Group Code and Value Code.
-- Uniqueness validation for Order within Group Code.
-- Uniqueness validation for Value Code within Group Code.
-- Purchases CSV export through the Actions > Export menu when Purchases is active.
-- Purchases CSV import through Actions > Import, using a selected directory and a CSV-only file list.
-
-Version 18 adds:
-- Application Codes CSV export as ApplicationCodes.csv when the Application Codes screen is active.
-- Application Codes CSV import through Actions > Import, clearing the current Application Codes data first and presenting CSV files from the selected Download directory.
-- Imported Application Codes are validated for uppercase GroupCode and ValueCode and uniqueness of Order and ValueCode within GroupCode.
-
-Version 18 adds:
-- Application Codes CSV export as ApplicationCodes.csv when the Application Codes screen is active.
-- Application Codes CSV import through Actions > Import, clearing the current Application Codes data first and presenting CSV files from the selected Download directory.
-- Imported Application Codes are validated for uppercase GroupCode and ValueCode and uniqueness of Order and ValueCode within GroupCode.
+Version 23 applies the persistence, update, and CSV-error-handling mechanism used in Excedrin:
+- IndexedDB (MJDB) is the authoritative persistent store for Stores, Purchases, Products, and LookupCodes.
+- Existing localStorage data is automatically migrated into IndexedDB on first run and retained as a backup.
+- Add/Change/Delete/Import updates are persisted without requiring site-data or cache clearing.
+- The service-worker cache is versioned and navigation requests use a network-first update path so new application versions can load without clearing persisted data.
+- CSV imports are all-or-nothing: existing table data is not replaced until the complete selected CSV has passed validation.
+- CSV import errors identify the CSV row, complete row contents, invalid element/value, and the reason it is invalid.
+- Application Codes Import continues to leave existing data intact if the file-selection operation is cancelled.
