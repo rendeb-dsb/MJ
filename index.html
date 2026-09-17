@@ -66,7 +66,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v23</div>
+    <div id="version" class="version">v24</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
     <button class="gear-button" id="gearButton" aria-label="Application Codes" title="Application Codes">⚙</button>
   </div>
@@ -550,17 +550,23 @@
     return !!heading && heading.textContent.trim() === 'Application Codes';
   }
 
+  // Import a single CSV file directly.  Do not request directory access:
+  // Android's directory picker can refuse protected folders such as Download.
+  // The browser file picker lets the user navigate to Download and select the
+  // CSV itself, without requesting permission to use the entire directory.
   function importApplicationCodesFromDownload() {
     const input = document.createElement('input');
     input.type = 'file';
-    input.multiple = true;
-    input.setAttribute('webkitdirectory', '');
-    input.setAttribute('directory', '');
     input.accept = '.csv,text/csv';
-    input.addEventListener('change', () => {
-      // Do not alter the table until the user has actually selected a CSV.
+    input.addEventListener('change', async () => {
+      // Canceling the picker leaves the existing Application Codes data intact.
       if (!input.files || input.files.length === 0) return;
-      showApplicationCodeCsvFileChooser(input.files);
+      const file = input.files[0];
+      if (!/\.csv$/i.test(file.name)) {
+        showMessage('Please select a CSV file.');
+        return;
+      }
+      await importApplicationCodesCsv(file);
     });
     input.click();
   }
@@ -568,11 +574,16 @@
   function importPurchasesFromDirectory() {
     const input = document.createElement('input');
     input.type = 'file';
-    input.multiple = true;
-    input.setAttribute('webkitdirectory', '');
-    input.setAttribute('directory', '');
     input.accept = '.csv,text/csv';
-    input.addEventListener('change', () => showCsvFileChooser(input.files));
+    input.addEventListener('change', async () => {
+      if (!input.files || input.files.length === 0) return;
+      const file = input.files[0];
+      if (!/\.csv$/i.test(file.name)) {
+        showMessage('Please select a CSV file.');
+        return;
+      }
+      await importPurchasesCsv(file);
+    });
     input.click();
   }
 
