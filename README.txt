@@ -1,10 +1,9 @@
-MJ Version 23 PWA
+MJ Version 27 PWA
 
-Version 23 applies the persistence, update, and CSV-error-handling mechanism used in Excedrin:
-- IndexedDB (MJDB) is the authoritative persistent store for Stores, Purchases, Products, and LookupCodes.
-- Existing localStorage data is automatically migrated into IndexedDB on first run and retained as a backup.
-- Add/Change/Delete/Import updates are persisted without requiring site-data or cache clearing.
-- The service-worker cache is versioned and navigation requests use a network-first update path so new application versions can load without clearing persisted data.
-- CSV imports are all-or-nothing: existing table data is not replaced until the complete selected CSV has passed validation.
-- CSV import errors identify the CSV row, complete row contents, invalid element/value, and the reason it is invalid.
-- Application Codes Import continues to leave existing data intact if the file-selection operation is cancelled.
+Version 27 adds a required unique Order field to Stores.
+- Order accepts numeric display values, including decimals.
+- When saved, Order is converted to the next higher whole number.
+- If the desired Order is already used, existing Orders at or above it are shifted upward by one until all Store Orders are unique.
+- Order is the first Stores data-entry field and is sized like State.
+- Existing Store records without Order are assigned unique whole-number Orders when v27 first loads.
+- IndexedDB persistence and existing Import/Export CSV behavior are retained.

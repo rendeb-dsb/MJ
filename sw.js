@@ -1,4 +1,4 @@
-const CACHE = 'mj-v24';
+const CACHE = 'mj-v27';
 self.addEventListener('install', event => event.waitUntil(
   caches.open(CACHE).then(c => c.addAll(['./','./index.html','./manifest.json'])).then(() => self.skipWaiting())
 ));
