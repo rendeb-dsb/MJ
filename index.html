@@ -75,7 +75,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v27</div>
+    <div id="version" class="version">v29</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
     <button class="gear-button" id="gearButton" aria-label="Application Codes" title="Application Codes">⚙</button>
   </div>
@@ -108,6 +108,7 @@
   const mainContent = document.getElementById('mainContent');
   let activeScreen = 'Stores';
   let selectedStoreId = null;
+  let pendingPurchaseStoreId = null;
 
   function closeActions() {
     actionsMenu.classList.remove('open');
@@ -287,9 +288,19 @@
       const yyyy = today.getFullYear();
       const defaultDate = `${mm}/${dd}/${yyyy}`;
 
+      const orderedStores = getStores().slice().sort((a,b) => Number(a.Order) - Number(b.Order) || Number(a.StoreID) - Number(b.StoreID));
+      pendingPurchaseStoreId = null;
+
       mainContent.innerHTML = `
         <section class="content-card">
           <div class="form-area">
+            <div class="form-row">
+              <span class="form-label">Store</span><span class="form-colon">:</span>
+              <select class="form-input purchase-store" aria-label="Store" ${orderedStores.length ? '' : 'disabled'}>
+                <option value="">${orderedStores.length ? 'Select Store' : 'No Stores available'}</option>
+                ${orderedStores.map(store => `<option value="${Number(store.StoreID)}">${escapeHtml(String(store.Name ?? ''))}</option>`).join('')}
+              </select>
+            </div>
             <div class="form-row">
               <span class="form-label">Date</span><span class="form-colon">:</span>
               <input class="form-input purchase-date" type="text" inputmode="numeric" maxlength="10" aria-label="Date" value="${defaultDate}">
@@ -319,6 +330,13 @@
       document.getElementById('saveButton').setAttribute('aria-disabled', 'true');
       document.getElementById('cancelButton').addEventListener('click', () => displayList());
       document.getElementById('purchasePlus').addEventListener('click', () => displayAddProductForm());
+
+      const storeSelect = document.querySelector('.purchase-store');
+      if (storeSelect) {
+        storeSelect.addEventListener('change', () => {
+          pendingPurchaseStoreId = storeSelect.value ? Number(storeSelect.value) : null;
+        });
+      }
 
       const dateInput = document.querySelector('.purchase-date');
       dateInput.addEventListener('input', () => {
@@ -449,6 +467,17 @@
       `<strong>CSV row:</strong> ${escapeHtml(csvRowText(row))}<br>` +
       `<strong>Invalid element:</strong> ${escapeHtml(element)} = ${escapeHtml(String(value ?? ''))}<br>` +
       `<strong>Reason:</strong> ${escapeHtml(reason)}`);
+  }
+
+  function getPurchases() { return dataCache.purchases || []; }
+  function savePurchases(rows) { persistTable('purchases', rows); }
+
+  function addPurchaseRecord(storeId, purchDate) {
+    const rows = getPurchases().map(r => ({...r}));
+    const nextId = rows.reduce((m,r) => Math.max(m, Number(r.PurchaseID) || 0), 0) + 1;
+    rows.push({PurchaseID: nextId, StoreID: Number(storeId), PurchDate: purchDate});
+    savePurchases(rows);
+    return nextId;
   }
 
   function exportPurchasesCsv() {
