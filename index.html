@@ -64,6 +64,10 @@
   .lookup-list .value-code-col { min-width:78px; width:78px; }
   .lookup-list .value-col { min-width:120px; }
   .lookup-list .stacked-header { line-height:1.05; white-space:normal; }
+  .currency-input { max-width:180px; }
+  .percentage-row { display:flex; align-items:center; gap:18px; margin:0 0 14px; flex-wrap:wrap; }
+  .percentage-field { display:flex; align-items:center; }
+  .percentage-input { width:6ch; box-sizing:content-box; height:38px; border:1px solid #9ca3af; border-radius:5px; padding:7px 5px; font-size:16px; }
   .form-button:disabled { opacity:.55; cursor:default; }
   .csv-file-list { max-height:55vh; overflow:auto; border:1px solid var(--border); border-radius:6px; margin:12px 0; }
   .csv-file-button { display:block; width:100%; border:0; border-bottom:1px solid #e5e7eb; background:white; text-align:left; padding:12px; font-size:15px; cursor:pointer; }
@@ -75,7 +79,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v29</div>
+    <div id="version" class="version">v31</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
     <button class="gear-button" id="gearButton" aria-label="Application Codes" title="Application Codes">⚙</button>
   </div>
@@ -189,6 +193,12 @@
           }
         }
         dataCache[cacheName] = rows;
+      }
+      const normalizedProducts = normalizeProductRows(dataCache.products);
+      if (JSON.stringify(normalizedProducts) !== JSON.stringify(dataCache.products)) {
+        dataCache.products = normalizedProducts;
+        await replaceIDBStore(IDB_TABLES.products.name, normalizedProducts);
+        try { localStorage.setItem(PRODUCTS_KEY, JSON.stringify(normalizedProducts)); } catch {}
       }
       const storesBeforeNormalize = JSON.stringify(dataCache.stores);
       const normalizedStores = normalizeStoreOrders(dataCache.stores);
@@ -408,24 +418,104 @@
     }
   }
 
+  function getCategoryOptions() {
+    return getLookupCodes()
+      .filter(r => String(r.GroupCode ?? '').toUpperCase().includes('CA'))
+      .sort((a,b) => Number(a.Order) - Number(b.Order) || Number(a.LookupCodeID) - Number(b.LookupCodeID));
+  }
+
+  function normalizeProductRows(rows) {
+    return rows.map(r => {
+      const out = {
+        ProductID: r.ProductID,
+        PurchaseID: r.PurchaseID ?? null,
+        Product: r.Product ?? '',
+        Cost: Number.isFinite(Number(r.Cost)) ? Number(r.Cost) : null,
+        THC: (r.THC === '' || r.THC == null) ? null : Number(r.THC),
+        CBD: (r.CBD === '' || r.CBD == null) ? null : Number(r.CBD),
+        Category: r.Category ?? r.CategoryID ?? null
+      };
+      return out;
+    });
+  }
+
+  function saveProducts(rows) { persistTable('products', normalizeProductRows(rows)); }
+  function getProducts() { return dataCache.products || []; }
+
+  function formatCurrency(value) {
+    if (value === '' || value == null || !Number.isFinite(Number(value))) return '';
+    return Number(value).toLocaleString('en-US', {style:'currency', currency:'USD'});
+  }
+
+  function parseCurrency(value) {
+    const cleaned = String(value ?? '').replace(/[$,\s]/g, '');
+    if (cleaned === '') return null;
+    const n = Number(cleaned);
+    return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : NaN;
+  }
+
+  function validatePercentage(value) {
+    const text = String(value ?? '').trim();
+    if (text === '') return null;
+    if (!/^\d{1,3}(?:\.\d{1,2})?$/.test(text)) return NaN;
+    const n = Number(text);
+    return Number.isFinite(n) && n >= 0 && n <= 100 ? Math.round(n * 100) / 100 : NaN;
+  }
+
   function displayAddProductForm() {
     closeActions();
+    const categories = getCategoryOptions();
     mainContent.innerHTML = `
       <section class="content-card">
         <div class="form-area">
           <h2 class="form-title">Add Product Purchased</h2>
-          <div class="form-row"><span class="form-label">Product</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="Product"></div>
-          <div class="form-row"><span class="form-label">Attributes</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="Attributes"></div>
-          <div class="form-row"><span class="form-label">Cost</span><span class="form-colon">:</span><input class="form-input" type="text" inputmode="decimal" aria-label="Cost"></div>
-          <div class="form-row"><span class="form-label">Quantity</span><span class="form-colon">:</span><input class="form-input" type="text" inputmode="numeric" aria-label="Quantity" value="1"></div>
-          <div class="form-row"><span class="form-label">Type</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="Type" maxlength="1" value=""></div>
-          <div class="form-row"><span class="form-label">THC</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="THC" value=""></div>
-          <div class="form-row"><span class="form-label">Usage</span><span class="form-colon">:</span><input class="form-input" type="text" aria-label="Usage" required></div>
+          <div class="form-row"><span class="form-label">Product</span><span class="form-colon">:</span><input class="form-input" id="productNameInput" type="text" aria-label="Product"></div>
+          <div class="form-row"><span class="form-label">Cost</span><span class="form-colon">:</span><input class="form-input currency-input" id="productCostInput" type="text" inputmode="decimal" aria-label="Cost" placeholder="$0.00"></div>
+          <div class="form-row"><span class="form-label">Category</span><span class="form-colon">:</span><select class="form-input" id="productCategoryInput" aria-label="Category">
+            <option value="">${categories.length ? 'Select Category' : 'No Categories available'}</option>
+            ${categories.map(r => `<option value="${Number(r.LookupCodeID)}">${escapeHtml(String(r.Value ?? ''))}</option>`).join('')}
+          </select></div>
+          <div class="percentage-row">
+            <div class="percentage-field"><span class="form-label">% THC</span><span class="form-colon">:</span><input class="percentage-input" id="productThcInput" type="text" inputmode="decimal" maxlength="6" aria-label="% THC"></div>
+            <div class="percentage-field"><span class="form-label">% CBD</span><span class="form-colon">:</span><input class="percentage-input" id="productCbdInput" type="text" inputmode="decimal" maxlength="6" aria-label="% CBD"></div>
+          </div>
           <div class="form-actions"><button class="form-button save" id="productSaveButton">Save</button><button class="form-button cancel" id="productCancelButton">Cancel</button></div>
         </div>
       </section>`;
-    document.getElementById('productSaveButton').disabled = true;
-    document.getElementById('productSaveButton').setAttribute('aria-disabled', 'true');
+
+    const cost = document.getElementById('productCostInput');
+    const thc = document.getElementById('productThcInput');
+    const cbd = document.getElementById('productCbdInput');
+    cost.addEventListener('focus', () => { if (cost.value) cost.value = cost.value.replace(/[^0-9.]/g, ''); });
+    cost.addEventListener('blur', () => { const n=parseCurrency(cost.value); if (!Number.isNaN(n) && n != null) cost.value=formatCurrency(n); });
+    cost.addEventListener('input', () => { cost.value = cost.value.replace(/[^0-9.$,]/g, ''); });
+    [thc,cbd].forEach(input => input.addEventListener('input', () => {
+      let v=input.value.replace(/[^0-9.]/g,'');
+      const d=v.indexOf('.');
+      if(d>=0) v=v.slice(0,d+1)+v.slice(d+1).replace(/\./g,'');
+      const parts=v.split('.');
+      if(parts[0].length>3) parts[0]=parts[0].slice(0,3);
+      if(parts[1]) parts[1]=parts[1].slice(0,2);
+      input.value=parts.join('.');
+    }));
+
+    document.getElementById('productSaveButton').addEventListener('click', () => {
+      const product = document.getElementById('productNameInput').value.trim();
+      const costValue = parseCurrency(cost.value);
+      const thcValue = validatePercentage(thc.value);
+      const cbdValue = validatePercentage(cbd.value);
+      const categoryValue = document.getElementById('productCategoryInput').value;
+      if (!product) { showMessage('Product is required.'); return; }
+      if (costValue == null || Number.isNaN(costValue)) { showMessage('Cost is required and must be a valid currency amount.'); return; }
+      if (Number.isNaN(thcValue)) { showMessage('% THC must be a number from 0 to 100.00.'); return; }
+      if (Number.isNaN(cbdValue)) { showMessage('% CBD must be a number from 0 to 100.00.'); return; }
+      if (!categoryValue) { showMessage('Category is required.'); return; }
+      const rows=getProducts().slice();
+      const nextId=rows.reduce((m,r)=>Math.max(m,Number(r.ProductID)||0),0)+1;
+      rows.push({ProductID:nextId, PurchaseID:null, Product:product, Cost:costValue, THC:thcValue, CBD:cbdValue, Category:Number(categoryValue)});
+      saveProducts(rows);
+      showMessage('Product saved.', [{label:'OK', action:()=>displayAddForm('add')}]);
+    });
     document.getElementById('productCancelButton').addEventListener('click', () => displayAddForm('add'));
   }
 
