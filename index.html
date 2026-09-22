@@ -79,7 +79,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v39</div>
+    <div id="version" class="version">v40</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
     <button class="gear-button" id="gearButton" aria-label="Application Codes" title="Application Codes">⚙</button>
   </div>
@@ -401,43 +401,49 @@
       document.querySelectorAll('input[name="productSelect"]').forEach(radio => radio.addEventListener('change', e => { selectedProductId = Number(e.target.value); }));
       if (preservePurchase) { const hasProducts = getProducts().some(r => Number(r.PurchaseID) === Number(pendingPurchaseId)); document.getElementById('saveButton').disabled = false; document.getElementById('saveButton').textContent = 'Close'; document.getElementById('cancelButton').style.display = 'none'; document.getElementById('purchasePlus').disabled = false; const minus = document.getElementById('purchaseMinus'); minus.style.display = hasProducts ? '' : 'none'; minus.disabled = !hasProducts; }
 
-      document.getElementById('saveButton').onclick = () => {
-        if (pendingPurchaseId != null) return;
-        const selectedStore = storeSelectValue();
-        const date = document.querySelector('.purchase-date').value.trim();
-        if (!selectedStore) {
-          showMessage('Select a Store before saving.', [{label:'Close', action:()=>{}}]);
-          return;
-        }
-        if (!isValidPurchaseDate(date)) {
-          showMessage('Enter a valid date before saving.', [{label:'Close', action:()=>{}}]);
-          return;
-        }
-        pendingPurchaseStoreId = Number(selectedStore);
-        pendingPurchaseDate = date;
-        pendingPurchaseId = addPurchaseRecord(pendingPurchaseStoreId, pendingPurchaseDate);
-        selectedPurchaseId = pendingPurchaseId;
-        const plus = document.getElementById('purchasePlus');
-        const minus = document.getElementById('purchaseMinus');
-        plus.disabled = false;
-        minus.style.display = 'none';
-        minus.disabled = true;
-        const saveButton = document.getElementById('saveButton');
-        const cancelButton = document.getElementById('cancelButton');
-        cancelButton.style.display = 'none';
-        saveButton.textContent = 'Close';
-        saveButton.disabled = false;
-        // Replace the Save action completely.  The old handler used an
-        // addEventListener plus onclick, which could leave the button on
-        // the saved-Purchase screen.  Close now has one unambiguous action.
-        saveButton.onclick = () => {
-          pendingPurchaseId = null;
-          pendingPurchaseStoreId = null;
-          pendingPurchaseDate = null;
-          selectedProductId = null;
-          displayPurchaseParentList();
-        };
+      const saveButton = document.getElementById('saveButton');
+      const closeSavedPurchase = () => {
+        pendingPurchaseId = null;
+        pendingPurchaseStoreId = null;
+        pendingPurchaseDate = null;
+        selectedProductId = null;
+        displayPurchaseParentList();
       };
+
+      // If this is an already-saved Purchase, the button is a true Close
+      // button.  It must not run the Add/Save handler below.
+      if (preservePurchase) {
+        saveButton.onclick = closeSavedPurchase;
+      } else {
+        saveButton.onclick = () => {
+          const selectedStore = storeSelectValue();
+          const date = document.querySelector('.purchase-date').value.trim();
+          if (!selectedStore) {
+            showMessage('Select a Store before saving.', [{label:'Close', action:()=>{}}]);
+            return;
+          }
+          if (!isValidPurchaseDate(date)) {
+            showMessage('Enter a valid date before saving.', [{label:'Close', action:()=>{}}]);
+            return;
+          }
+          pendingPurchaseStoreId = Number(selectedStore);
+          pendingPurchaseDate = date;
+          pendingPurchaseId = addPurchaseRecord(pendingPurchaseStoreId, pendingPurchaseDate);
+          selectedPurchaseId = pendingPurchaseId;
+          const plus = document.getElementById('purchasePlus');
+          const minus = document.getElementById('purchaseMinus');
+          plus.disabled = false;
+          minus.style.display = 'none';
+          minus.disabled = true;
+          const cancelButton = document.getElementById('cancelButton');
+          cancelButton.style.display = 'none';
+          saveButton.textContent = 'Close';
+          saveButton.disabled = false;
+          // After the Purchase has been saved, Close returns to the
+          // Purchases parent list showing Store and Purchase Date.
+          saveButton.onclick = closeSavedPurchase;
+        };
+      }
 
       const storeSelect = document.querySelector('.purchase-store');
       if (storeSelect) {
@@ -1166,7 +1172,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=38'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=40'));
   }
 </script>
 </body>
