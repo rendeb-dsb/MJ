@@ -79,7 +79,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v33</div>
+    <div id="version" class="version">v34</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
     <button class="gear-button" id="gearButton" aria-label="Application Codes" title="Application Codes">⚙</button>
   </div>
@@ -113,6 +113,7 @@
   let activeScreen = 'Stores';
   let selectedStoreId = null;
   let selectedProductId = null;
+  let selectedPurchaseId = null;
   let pendingPurchaseStoreId = null;
   let pendingPurchaseId = null;
   let pendingPurchaseDate = null;
@@ -262,11 +263,19 @@
 
   function displayList() {
     const stores = activeScreen === 'Stores' ? getStores() : [];
+    const purchases = activeScreen === 'Purchases' ? getPurchases() : [];
     let body = '';
     if (activeScreen === 'Stores' && stores.length) {
       const orderedStores = stores.slice().sort((a,b) => Number(a.Order) - Number(b.Order) || Number(a.StoreID) - Number(b.StoreID));
       body = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:760px"><thead><tr><th aria-label="Select" style="width:42px;padding:10px;border-bottom:1px solid #d1d5db"></th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Order</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Name</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Address1</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Address2</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">City</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">State</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Zip</th></tr></thead><tbody>` + orderedStores.map(r => `<tr><td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:center"><input type="radio" name="storeSelect" value="${r.StoreID}" ${Number(selectedStoreId) === Number(r.StoreID) ? 'checked' : ''} aria-label="Select store"></td>${['Order','Name','Address1','Address2','City','State','Zip'].map(k => `<td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(r[k] ?? '')}</td>`).join('')}</tr>`).join('') + '</tbody></table></div>';
       setTimeout(() => document.querySelectorAll('input[name="storeSelect"]').forEach(radio => radio.addEventListener('change', e => { selectedStoreId = Number(e.target.value); })), 0);
+    } else if (activeScreen === 'Purchases' && purchases.length) {
+      const orderedPurchases = purchases.slice().sort((a,b) => Number(a.PurchaseID) - Number(b.PurchaseID));
+      body = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:420px"><thead><tr><th aria-label="Select" style="width:42px;padding:10px;border-bottom:1px solid #d1d5db"></th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Store</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Date</th></tr></thead><tbody>` + orderedPurchases.map(r => {
+        const store = getStores().find(st => Number(st.StoreID) === Number(r.StoreID));
+        return `<tr><td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:center"><input type="radio" name="purchaseSelect" value="${Number(r.PurchaseID)}" ${Number(selectedPurchaseId) === Number(r.PurchaseID) ? 'checked' : ''} aria-label="Select purchase"></td><td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(String(store?.Name ?? ''))}</td><td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(String(r.PurchDate ?? ''))}</td></tr>`;
+      }).join('') + '</tbody></table></div>';
+      setTimeout(() => document.querySelectorAll('input[name="purchaseSelect"]').forEach(radio => radio.addEventListener('change', e => { selectedPurchaseId = Number(e.target.value); })), 0);
     } else {
       body = `<div class="empty-message">No ${activeScreen.toLowerCase()} records have been added yet.</div><div class="demo-space">Scrollable content area for the ${activeScreen} list.</div>`;
     }
@@ -313,6 +322,7 @@
       const yyyy = today.getFullYear();
       const defaultDate = `${mm}/${dd}/${yyyy}`;
       const preservePurchase = Number.isFinite(Number(pendingPurchaseId)) && Number(pendingPurchaseId) > 0;
+      if (!preservePurchase && selectedPurchaseId != null && mode === 'add') selectedPurchaseId = null;
       const purchaseRow = preservePurchase ? getPurchases().find(r => Number(r.PurchaseID) === Number(pendingPurchaseId)) : null;
       if (!preservePurchase) {
         pendingPurchaseStoreId = null;
@@ -368,10 +378,18 @@
       document.getElementById('saveButton').removeAttribute('aria-disabled');
       document.getElementById('cancelButton').addEventListener('click', () => { pendingPurchaseId = null; pendingPurchaseStoreId = null; pendingPurchaseDate = null; selectedProductId = null; displayList(); });
       document.getElementById('purchasePlus').addEventListener('click', () => { if (pendingPurchaseId != null) displayAddProductForm(); });
+      document.getElementById('purchaseMinus').addEventListener('click', () => {
+        if (pendingPurchaseId == null) {
+          showMessage('Select a Purchase before deleting.', [{label:'Close', action:()=>{}}]);
+          return;
+        }
+        displayDeletePurchaseForm();
+      });
       document.querySelectorAll('input[name="productSelect"]').forEach(radio => radio.addEventListener('change', e => { selectedProductId = Number(e.target.value); }));
-      if (preservePurchase) document.getElementById('saveButton').disabled = true;
+      if (preservePurchase) { document.getElementById('saveButton').disabled = false; document.getElementById('saveButton').textContent = 'Close'; document.getElementById('cancelButton').style.display = 'none'; document.getElementById('purchasePlus').disabled = false; document.getElementById('purchaseMinus').disabled = false; }
 
       document.getElementById('saveButton').addEventListener('click', () => {
+        if (pendingPurchaseId != null) return;
         const selectedStore = storeSelectValue();
         const date = document.querySelector('.purchase-date').value.trim();
         if (!selectedStore) {
@@ -386,9 +404,17 @@
         pendingPurchaseStoreId = Number(selectedStore);
         pendingPurchaseDate = date;
         pendingPurchaseId = addPurchaseRecord(pendingPurchaseStoreId, pendingPurchaseDate);
+        selectedPurchaseId = pendingPurchaseId;
         const plus = document.getElementById('purchasePlus');
+        const minus = document.getElementById('purchaseMinus');
         plus.disabled = false;
-        document.getElementById('saveButton').disabled = true;
+        minus.disabled = false;
+        const saveButton = document.getElementById('saveButton');
+        const cancelButton = document.getElementById('cancelButton');
+        cancelButton.style.display = 'none';
+        saveButton.textContent = 'Close';
+        saveButton.disabled = false;
+        saveButton.onclick = () => { pendingPurchaseId = null; pendingPurchaseStoreId = null; pendingPurchaseDate = null; selectedProductId = null; displayList(); };
       });
 
       const storeSelect = document.querySelector('.purchase-store');
@@ -466,6 +492,39 @@
       mainContent.innerHTML = `<section class="content-card"><div class="form-area"><h2 class="form-title">${activeScreen}</h2><div class="notice">No ${activeScreen} fields have been defined yet.</div><div class="form-actions"><button class="form-button save" id="saveButton" disabled>Save</button><button class="form-button cancel" id="cancelButton">Cancel</button></div></div></section>`;
       document.getElementById('cancelButton').addEventListener('click', displayList);
     }
+  }
+
+  function displayDeletePurchaseForm() {
+    closeActions();
+    const purchaseId = Number(selectedPurchaseId);
+    const purchase = getPurchases().find(r => Number(r.PurchaseID) === purchaseId);
+    if (!purchase) {
+      showMessage('Select a Purchase before deleting.', [{label:'Close', action:displayList}]);
+      return;
+    }
+    const store = getStores().find(r => Number(r.StoreID) === Number(purchase.StoreID));
+    mainContent.innerHTML = `
+      <section class="content-card"><div class="form-area">
+        <h2 class="form-title">Delete Purchase</h2>
+        <div class="form-row"><span class="form-label">Store</span><span class="form-colon">:</span><input class="form-input" type="text" value="${escapeHtml(String(store?.Name ?? ''))}" readonly></div>
+        <div class="form-row"><span class="form-label">Date</span><span class="form-colon">:</span><input class="form-input" type="text" value="${escapeHtml(String(purchase.PurchDate ?? ''))}" readonly></div>
+        <div class="form-actions"><button class="form-button cancel" id="deletePurchaseCloseButton">Close</button></div>
+      </div></section>`;
+    showMessage('Delete this record?', [
+      {label:'Yes', action:async () => {
+        const purchaseRows = getPurchases().filter(r => Number(r.PurchaseID) !== purchaseId);
+        const productRows = getProducts().filter(r => Number(r.PurchaseID) !== purchaseId);
+        saveProducts(productRows);
+        savePurchases(purchaseRows);
+        selectedPurchaseId = null;
+        pendingPurchaseId = null;
+        pendingPurchaseStoreId = null;
+        pendingPurchaseDate = null;
+        selectedProductId = null;
+        displayList();
+      }},
+      {label:'No', action:displayList}
+    ]);
   }
 
   function getCategoryOptions() {
