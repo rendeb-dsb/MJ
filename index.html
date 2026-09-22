@@ -79,7 +79,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v35</div>
+    <div id="version" class="version">v36</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
     <button class="gear-button" id="gearButton" aria-label="Application Codes" title="Application Codes">⚙</button>
   </div>
@@ -351,7 +351,7 @@
             </div>
             <div class="purchase-adjusters">
               <button type="button" class="small-button" id="purchasePlus" aria-label="Plus" ${preservePurchase ? '' : 'disabled'}>+</button>
-              <button type="button" class="small-button" id="purchaseMinus" aria-label="Minus" disabled>-</button>
+              <button type="button" class="small-button" id="purchaseMinus" aria-label="Minus" ${preservePurchase && getProducts().some(r => Number(r.PurchaseID) === Number(pendingPurchaseId)) ? '' : 'disabled'}>-</button>
             </div>
             <h2 class="form-title purchase-section-title">Purchased Products</h2>
             <div class="purchase-product-list">
@@ -386,7 +386,7 @@
         displayDeletePurchaseForm();
       });
       document.querySelectorAll('input[name="productSelect"]').forEach(radio => radio.addEventListener('change', e => { selectedProductId = Number(e.target.value); }));
-      if (preservePurchase) { document.getElementById('saveButton').disabled = false; document.getElementById('saveButton').textContent = 'Close'; document.getElementById('cancelButton').style.display = 'none'; document.getElementById('purchasePlus').disabled = false; document.getElementById('purchaseMinus').disabled = false; }
+      if (preservePurchase) { document.getElementById('saveButton').disabled = false; document.getElementById('saveButton').textContent = 'Close'; document.getElementById('cancelButton').style.display = 'none'; document.getElementById('purchasePlus').disabled = false; document.getElementById('purchaseMinus').disabled = !getProducts().some(r => Number(r.PurchaseID) === Number(pendingPurchaseId)); }
 
       document.getElementById('saveButton').addEventListener('click', () => {
         if (pendingPurchaseId != null) return;
@@ -408,7 +408,7 @@
         const plus = document.getElementById('purchasePlus');
         const minus = document.getElementById('purchaseMinus');
         plus.disabled = false;
-        minus.disabled = false;
+        minus.disabled = !getProducts().some(r => Number(r.PurchaseID) === Number(pendingPurchaseId));
         const saveButton = document.getElementById('saveButton');
         const cancelButton = document.getElementById('cancelButton');
         cancelButton.style.display = 'none';
@@ -1116,7 +1116,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=35'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=36'));
   }
 </script>
 </body>
