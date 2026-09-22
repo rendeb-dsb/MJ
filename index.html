@@ -79,7 +79,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v31</div>
+    <div id="version" class="version">v32</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
     <button class="gear-button" id="gearButton" aria-label="Application Codes" title="Application Codes">⚙</button>
   </div>
@@ -113,6 +113,8 @@
   let activeScreen = 'Stores';
   let selectedStoreId = null;
   let pendingPurchaseStoreId = null;
+  let pendingPurchaseId = null;
+  let pendingPurchaseDate = null;
 
   function closeActions() {
     actionsMenu.classList.remove('open');
@@ -287,6 +289,18 @@
     buttons.forEach((b, i) => { const btn=document.createElement('button'); btn.className='form-button'; btn.textContent=b.label; btn.id='messageBtn'+i; btn.addEventListener('click',()=>{ box.remove(); b.action(); }); buttonArea.appendChild(btn); });
   }
 
+  function storeSelectValue() {
+    const select = document.querySelector('.purchase-store');
+    return select ? select.value : '';
+  }
+
+  function isValidPurchaseDate(value) {
+    if (!/^\d{2}\/\d{2}\/\d{4}$/.test(value)) return false;
+    const [m,d,y] = value.split('/').map(Number);
+    const dt = new Date(y, m - 1, d);
+    return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
+  }
+
   function displayAddForm(mode = 'add') {
     closeActions();
     if (mode !== 'add' && activeScreen !== 'Stores') return;
@@ -297,9 +311,18 @@
       const dd = String(today.getDate()).padStart(2, '0');
       const yyyy = today.getFullYear();
       const defaultDate = `${mm}/${dd}/${yyyy}`;
+      const preservePurchase = Number.isFinite(Number(pendingPurchaseId)) && Number(pendingPurchaseId) > 0;
+      const purchaseRow = preservePurchase ? getPurchases().find(r => Number(r.PurchaseID) === Number(pendingPurchaseId)) : null;
+      if (!preservePurchase) {
+        pendingPurchaseStoreId = null;
+        pendingPurchaseDate = null;
+      } else if (purchaseRow) {
+        pendingPurchaseStoreId = Number(purchaseRow.StoreID);
+        pendingPurchaseDate = purchaseRow.PurchDate || pendingPurchaseDate;
+      }
+      const displayDate = pendingPurchaseDate || defaultDate;
 
       const orderedStores = getStores().slice().sort((a,b) => Number(a.Order) - Number(b.Order) || Number(a.StoreID) - Number(b.StoreID));
-      pendingPurchaseStoreId = null;
 
       mainContent.innerHTML = `
         <section class="content-card">
@@ -308,16 +331,16 @@
               <span class="form-label">Store</span><span class="form-colon">:</span>
               <select class="form-input purchase-store" aria-label="Store" ${orderedStores.length ? '' : 'disabled'}>
                 <option value="">${orderedStores.length ? 'Select Store' : 'No Stores available'}</option>
-                ${orderedStores.map(store => `<option value="${Number(store.StoreID)}">${escapeHtml(String(store.Name ?? ''))}</option>`).join('')}
+                ${orderedStores.map(store => `<option value="${Number(store.StoreID)}" ${Number(pendingPurchaseStoreId) === Number(store.StoreID) ? 'selected' : ''}>${escapeHtml(String(store.Name ?? ''))}</option>`).join('')}
               </select>
             </div>
             <div class="form-row">
               <span class="form-label">Date</span><span class="form-colon">:</span>
-              <input class="form-input purchase-date" type="text" inputmode="numeric" maxlength="10" aria-label="Date" value="${defaultDate}">
+              <input class="form-input purchase-date" type="text" inputmode="numeric" maxlength="10" aria-label="Date" value="${escapeHtml(displayDate)}">
             </div>
             <div class="purchase-adjusters">
-              <button type="button" class="small-button" id="purchasePlus" aria-label="Plus">+</button>
-              <button type="button" class="small-button" aria-label="Minus">-</button>
+              <button type="button" class="small-button" id="purchasePlus" aria-label="Plus" ${preservePurchase ? '' : 'disabled'}>+</button>
+              <button type="button" class="small-button" id="purchaseMinus" aria-label="Minus" disabled>-</button>
             </div>
             <h2 class="form-title purchase-section-title">Purchases</h2>
             <div class="purchase-product-list">
@@ -336,10 +359,31 @@
           </div>
         </section>`;
 
-      document.getElementById('saveButton').disabled = true;
-      document.getElementById('saveButton').setAttribute('aria-disabled', 'true');
-      document.getElementById('cancelButton').addEventListener('click', () => displayList());
-      document.getElementById('purchasePlus').addEventListener('click', () => displayAddProductForm());
+      document.getElementById('saveButton').disabled = false;
+      document.getElementById('saveButton').removeAttribute('aria-disabled');
+      document.getElementById('cancelButton').addEventListener('click', () => { pendingPurchaseId = null; pendingPurchaseStoreId = null; pendingPurchaseDate = null; displayList(); });
+      document.getElementById('purchasePlus').addEventListener('click', () => { if (pendingPurchaseId != null) displayAddProductForm(); });
+      if (preservePurchase) document.getElementById('saveButton').disabled = true;
+
+      document.getElementById('saveButton').addEventListener('click', () => {
+        const selectedStore = storeSelectValue();
+        const date = document.querySelector('.purchase-date').value.trim();
+        if (!selectedStore) {
+          showMessage('Select a Store before saving.', [{label:'Close', action:()=>{}}]);
+          return;
+        }
+        if (!isValidPurchaseDate(date)) {
+          showMessage('Enter a valid date before saving.', [{label:'Close', action:()=>{}}]);
+          return;
+        }
+        if (pendingPurchaseId != null) return;
+        pendingPurchaseStoreId = Number(selectedStore);
+        pendingPurchaseDate = date;
+        pendingPurchaseId = addPurchaseRecord(pendingPurchaseStoreId, pendingPurchaseDate);
+        const plus = document.getElementById('purchasePlus');
+        plus.disabled = false;
+        document.getElementById('saveButton').disabled = true;
+      });
 
       const storeSelect = document.querySelector('.purchase-store');
       if (storeSelect) {
@@ -512,7 +556,8 @@
       if (!categoryValue) { showMessage('Category is required.'); return; }
       const rows=getProducts().slice();
       const nextId=rows.reduce((m,r)=>Math.max(m,Number(r.ProductID)||0),0)+1;
-      rows.push({ProductID:nextId, PurchaseID:null, Product:product, Cost:costValue, THC:thcValue, CBD:cbdValue, Category:Number(categoryValue)});
+      if (pendingPurchaseId == null) { showMessage('Save the Purchase before adding a Product.', [{label:'Close', action:()=>{}}]); return; }
+      rows.push({ProductID:nextId, PurchaseID:Number(pendingPurchaseId), Product:product, Cost:costValue, THC:thcValue, CBD:cbdValue, Category:Number(categoryValue)});
       saveProducts(rows);
       showMessage('Product saved.', [{label:'OK', action:()=>displayAddForm('add')}]);
     });
@@ -964,7 +1009,7 @@
   actionsMenu.addEventListener('click', event => {
     event.stopPropagation();
     if (event.target.matches('button')) {
-      if (event.target.dataset.action === 'add') displayAddForm('add');
+      if (event.target.dataset.action === 'add') { pendingPurchaseId = null; pendingPurchaseStoreId = null; pendingPurchaseDate = null; displayAddForm('add'); }
       else if (event.target.dataset.action === 'change') displayAddForm('change');
       else if (event.target.dataset.action === 'delete') deleteSelectedStore();
       else if (event.target.textContent === 'Export') {
