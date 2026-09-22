@@ -79,7 +79,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v37</div>
+    <div id="version" class="version">v38</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
     <button class="gear-button" id="gearButton" aria-label="Application Codes" title="Application Codes">⚙</button>
   </div>
@@ -261,6 +261,16 @@
       .forEach(r => { r.Order = Number(r.Order) + 1; });
   }
 
+  // Return from the saved Purchase screen to its parent Purchase list.
+  // The parent list shows the Store name and Purchase Date for each Purchase.
+  function displayPurchaseParentList() {
+    activeScreen = 'Purchases';
+    buttons.forEach(b => b.classList.toggle('active', b.dataset.screen === 'Purchases'));
+    title.textContent = 'MJ - Purchases';
+    document.title = 'MJ - Purchases';
+    displayList();
+  }
+
   function displayList() {
     const stores = activeScreen === 'Stores' ? getStores() : [];
     const purchases = activeScreen === 'Purchases' ? getPurchases() : [];
@@ -418,7 +428,7 @@
         cancelButton.style.display = 'none';
         saveButton.textContent = 'Close';
         saveButton.disabled = false;
-        saveButton.onclick = () => { pendingPurchaseId = null; pendingPurchaseStoreId = null; pendingPurchaseDate = null; selectedProductId = null; displayList(); };
+        saveButton.onclick = () => { pendingPurchaseId = null; pendingPurchaseStoreId = null; pendingPurchaseDate = null; selectedProductId = null; displayPurchaseParentList(); };
       });
 
       const storeSelect = document.querySelector('.purchase-store');
@@ -1148,7 +1158,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=37'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=38'));
   }
 </script>
 </body>
