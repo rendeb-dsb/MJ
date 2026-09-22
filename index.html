@@ -79,7 +79,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v36</div>
+    <div id="version" class="version">v37</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
     <button class="gear-button" id="gearButton" aria-label="Application Codes" title="Application Codes">⚙</button>
   </div>
@@ -351,7 +351,7 @@
             </div>
             <div class="purchase-adjusters">
               <button type="button" class="small-button" id="purchasePlus" aria-label="Plus" ${preservePurchase ? '' : 'disabled'}>+</button>
-              <button type="button" class="small-button" id="purchaseMinus" aria-label="Minus" ${preservePurchase && getProducts().some(r => Number(r.PurchaseID) === Number(pendingPurchaseId)) ? '' : 'disabled'}>-</button>
+              <button type="button" class="small-button" id="purchaseMinus" aria-label="Minus" style="${preservePurchase && getProducts().some(r => Number(r.PurchaseID) === Number(pendingPurchaseId)) ? '' : 'display:none'}">-</button>
             </div>
             <h2 class="form-title purchase-section-title">Purchased Products</h2>
             <div class="purchase-product-list">
@@ -379,14 +379,17 @@
       document.getElementById('cancelButton').addEventListener('click', () => { pendingPurchaseId = null; pendingPurchaseStoreId = null; pendingPurchaseDate = null; selectedProductId = null; displayList(); });
       document.getElementById('purchasePlus').addEventListener('click', () => { if (pendingPurchaseId != null) displayAddProductForm(); });
       document.getElementById('purchaseMinus').addEventListener('click', () => {
-        if (pendingPurchaseId == null) {
-          showMessage('Select a Purchase before deleting.', [{label:'Close', action:()=>{}}]);
+        if (pendingPurchaseId == null) return;
+        const productRows = getProducts().filter(r => Number(r.PurchaseID) === Number(pendingPurchaseId));
+        if (!productRows.length) return;
+        if (selectedProductId == null || !productRows.some(r => Number(r.ProductID) === Number(selectedProductId))) {
+          showMessage('Select a Purchased Product before deleting.', [{label:'Close', action:()=>{}}]);
           return;
         }
-        displayDeletePurchaseForm();
+        displayDeleteProductForm();
       });
       document.querySelectorAll('input[name="productSelect"]').forEach(radio => radio.addEventListener('change', e => { selectedProductId = Number(e.target.value); }));
-      if (preservePurchase) { document.getElementById('saveButton').disabled = false; document.getElementById('saveButton').textContent = 'Close'; document.getElementById('cancelButton').style.display = 'none'; document.getElementById('purchasePlus').disabled = false; document.getElementById('purchaseMinus').disabled = !getProducts().some(r => Number(r.PurchaseID) === Number(pendingPurchaseId)); }
+      if (preservePurchase) { const hasProducts = getProducts().some(r => Number(r.PurchaseID) === Number(pendingPurchaseId)); document.getElementById('saveButton').disabled = false; document.getElementById('saveButton').textContent = 'Close'; document.getElementById('cancelButton').style.display = 'none'; document.getElementById('purchasePlus').disabled = false; const minus = document.getElementById('purchaseMinus'); minus.style.display = hasProducts ? '' : 'none'; minus.disabled = !hasProducts; }
 
       document.getElementById('saveButton').addEventListener('click', () => {
         if (pendingPurchaseId != null) return;
@@ -408,7 +411,8 @@
         const plus = document.getElementById('purchasePlus');
         const minus = document.getElementById('purchaseMinus');
         plus.disabled = false;
-        minus.disabled = !getProducts().some(r => Number(r.PurchaseID) === Number(pendingPurchaseId));
+        minus.style.display = 'none';
+        minus.disabled = true;
         const saveButton = document.getElementById('saveButton');
         const cancelButton = document.getElementById('cancelButton');
         cancelButton.style.display = 'none';
@@ -492,6 +496,34 @@
       mainContent.innerHTML = `<section class="content-card"><div class="form-area"><h2 class="form-title">${activeScreen}</h2><div class="notice">No ${activeScreen} fields have been defined yet.</div><div class="form-actions"><button class="form-button save" id="saveButton" disabled>Save</button><button class="form-button cancel" id="cancelButton">Cancel</button></div></div></section>`;
       document.getElementById('cancelButton').addEventListener('click', displayList);
     }
+  }
+
+  function displayDeleteProductForm() {
+    closeActions();
+    const productId = Number(selectedProductId);
+    const product = getProducts().find(r => Number(r.ProductID) === productId && Number(r.PurchaseID) === Number(pendingPurchaseId));
+    if (!product) {
+      showMessage('Select a Purchased Product before deleting.', [{label:'Close', action:()=>{}}]);
+      return;
+    }
+    mainContent.innerHTML = `
+      <section class="content-card"><div class="form-area">
+        <h2 class="form-title">Delete Purchased Product</h2>
+        <div class="form-row"><span class="form-label">Product</span><span class="form-colon">:</span><input class="form-input" type="text" value="${escapeHtml(String(product.Product ?? ''))}" readonly></div>
+        <div class="form-actions"><button class="form-button cancel" id="deleteProductCloseButton">Close</button></div>
+      </div></section>`;
+    showMessage('Delete this record?', [
+      {label:'Yes', action:() => {
+        const rows = getProducts().filter(r => Number(r.ProductID) !== productId);
+        saveProducts(rows);
+        selectedProductId = null;
+        displayAddForm('add');
+      }},
+      {label:'No', action:() => {
+        selectedProductId = productId;
+        displayAddForm('add');
+      }}
+    ]);
   }
 
   function displayDeletePurchaseForm() {
@@ -1116,7 +1148,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=36'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=37'));
   }
 </script>
 </body>
