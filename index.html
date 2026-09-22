@@ -79,7 +79,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v32</div>
+    <div id="version" class="version">v33</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
     <button class="gear-button" id="gearButton" aria-label="Application Codes" title="Application Codes">⚙</button>
   </div>
@@ -112,6 +112,7 @@
   const mainContent = document.getElementById('mainContent');
   let activeScreen = 'Stores';
   let selectedStoreId = null;
+  let selectedProductId = null;
   let pendingPurchaseStoreId = null;
   let pendingPurchaseId = null;
   let pendingPurchaseDate = null;
@@ -342,14 +343,18 @@
               <button type="button" class="small-button" id="purchasePlus" aria-label="Plus" ${preservePurchase ? '' : 'disabled'}>+</button>
               <button type="button" class="small-button" id="purchaseMinus" aria-label="Minus" disabled>-</button>
             </div>
-            <h2 class="form-title purchase-section-title">Purchases</h2>
+            <h2 class="form-title purchase-section-title">Purchased Products</h2>
             <div class="purchase-product-list">
               <table style="width:100%;border-collapse:collapse">
                 <thead><tr>
                   <th aria-label="Select" style="width:42px;padding:10px;border-bottom:1px solid #d1d5db"></th>
                   <th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Product</th>
                 </tr></thead>
-                <tbody><tr><td colspan="2" class="empty-message" style="padding:28px 10px">No products have been added.</td></tr></tbody>
+                <tbody>${(() => {
+                  const productRows = preservePurchase ? getProducts().filter(r => Number(r.PurchaseID) === Number(pendingPurchaseId)) : [];
+                  if (!productRows.length) return '<tr><td colspan="2" class="empty-message" style="padding:28px 10px">No products have been added.</td></tr>';
+                  return productRows.map(r => `<tr><td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:center"><input type="radio" name="productSelect" value="${Number(r.ProductID)}" ${Number(selectedProductId) === Number(r.ProductID) ? 'checked' : ''} aria-label="Select purchased product"></td><td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(String(r.Product ?? ''))}</td></tr>`).join('');
+                })()}</tbody>
               </table>
             </div>
             <div class="form-actions">
@@ -361,8 +366,9 @@
 
       document.getElementById('saveButton').disabled = false;
       document.getElementById('saveButton').removeAttribute('aria-disabled');
-      document.getElementById('cancelButton').addEventListener('click', () => { pendingPurchaseId = null; pendingPurchaseStoreId = null; pendingPurchaseDate = null; displayList(); });
+      document.getElementById('cancelButton').addEventListener('click', () => { pendingPurchaseId = null; pendingPurchaseStoreId = null; pendingPurchaseDate = null; selectedProductId = null; displayList(); });
       document.getElementById('purchasePlus').addEventListener('click', () => { if (pendingPurchaseId != null) displayAddProductForm(); });
+      document.querySelectorAll('input[name="productSelect"]').forEach(radio => radio.addEventListener('change', e => { selectedProductId = Number(e.target.value); }));
       if (preservePurchase) document.getElementById('saveButton').disabled = true;
 
       document.getElementById('saveButton').addEventListener('click', () => {
@@ -559,7 +565,8 @@
       if (pendingPurchaseId == null) { showMessage('Save the Purchase before adding a Product.', [{label:'Close', action:()=>{}}]); return; }
       rows.push({ProductID:nextId, PurchaseID:Number(pendingPurchaseId), Product:product, Cost:costValue, THC:thcValue, CBD:cbdValue, Category:Number(categoryValue)});
       saveProducts(rows);
-      showMessage('Product saved.', [{label:'OK', action:()=>displayAddForm('add')}]);
+      selectedProductId = nextId;
+      displayAddForm('add');
     });
     document.getElementById('productCancelButton').addEventListener('click', () => displayAddForm('add'));
   }
@@ -1009,7 +1016,7 @@
   actionsMenu.addEventListener('click', event => {
     event.stopPropagation();
     if (event.target.matches('button')) {
-      if (event.target.dataset.action === 'add') { pendingPurchaseId = null; pendingPurchaseStoreId = null; pendingPurchaseDate = null; displayAddForm('add'); }
+      if (event.target.dataset.action === 'add') { pendingPurchaseId = null; pendingPurchaseStoreId = null; pendingPurchaseDate = null; selectedProductId = null; displayAddForm('add'); }
       else if (event.target.dataset.action === 'change') displayAddForm('change');
       else if (event.target.dataset.action === 'delete') deleteSelectedStore();
       else if (event.target.textContent === 'Export') {
