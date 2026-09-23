@@ -79,7 +79,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v40</div>
+    <div id="version" class="version">v41</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
     <button class="gear-button" id="gearButton" aria-label="Application Codes" title="Application Codes">⚙</button>
   </div>
@@ -1133,7 +1133,11 @@
     if (event.target.matches('button')) {
       if (event.target.dataset.action === 'add') { pendingPurchaseId = null; pendingPurchaseStoreId = null; pendingPurchaseDate = null; selectedProductId = null; displayAddForm('add'); }
       else if (event.target.dataset.action === 'change') displayAddForm('change');
-      else if (event.target.dataset.action === 'delete') deleteSelectedStore();
+      else if (event.target.dataset.action === 'delete') {
+        if (activeScreen === 'Purchases') displayDeletePurchaseForm();
+        else if (activeScreen === 'Stores') deleteSelectedStore();
+        else closeActions();
+      }
       else if (event.target.textContent === 'Export') {
         closeActions();
         // Application Codes is opened by the Gear button and does not change
@@ -1172,7 +1176,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=40'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=41'));
   }
 </script>
 </body>
