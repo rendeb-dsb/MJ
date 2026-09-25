@@ -91,7 +91,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v46</div>
+    <div id="version" class="version">v47</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
@@ -312,10 +312,23 @@
       body = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:760px"><thead><tr><th aria-label="Select" style="width:42px;padding:10px;border-bottom:1px solid #d1d5db"></th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Order</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Name</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Address1</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Address2</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">City</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">State</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Zip</th></tr></thead><tbody>` + orderedStores.map(r => `<tr><td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:center"><input type="radio" name="storeSelect" value="${r.StoreID}" ${Number(selectedStoreId) === Number(r.StoreID) ? 'checked' : ''} aria-label="Select store"></td>${['Order','Name','Address1','Address2','City','State','Zip'].map(k => `<td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(r[k] ?? '')}</td>`).join('')}</tr>`).join('') + '</tbody></table></div>';
       setTimeout(() => document.querySelectorAll('input[name="storeSelect"]').forEach(radio => radio.addEventListener('change', e => { selectedStoreId = Number(e.target.value); })), 0);
     } else if (activeScreen === 'Purchases' && purchases.length) {
+      const stores = getStores();
+      const lookupCodes = getLookupCodes();
+      const products = getProducts();
       const orderedPurchases = purchases.slice().sort((a,b) => Number(a.PurchaseID) - Number(b.PurchaseID));
-      body = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:420px"><thead><tr><th aria-label="Select" style="width:42px;padding:10px;border-bottom:1px solid #d1d5db"></th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Store</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Date</th></tr></thead><tbody>` + orderedPurchases.map(r => {
-        const store = getStores().find(st => Number(st.StoreID) === Number(r.StoreID));
-        return `<tr><td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:center"><input type="radio" name="purchaseSelect" value="${Number(r.PurchaseID)}" ${Number(selectedPurchaseId) === Number(r.PurchaseID) ? 'checked' : ''} aria-label="Select purchase"></td><td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(String(store?.Name ?? ''))}</td><td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(String(r.PurchDate ?? ''))}</td></tr>`;
+      const productLines = (purchaseId, field, formatter) => {
+        const rows = products.filter(pr => Number(pr.PurchaseID) === Number(purchaseId)).sort((a,b) => Number(a.ProductID) - Number(b.ProductID));
+        if (!rows.length) return '<div style="min-height:1.4em">&nbsp;</div>';
+        return rows.map(pr => `<div style="padding:2px 0;min-height:1.4em">${escapeHtml(formatter(pr))}</div>`).join('');
+      };
+      const categoryName = value => {
+        const code = lookupCodes.find(c => Number(c.LookupCodeID) === Number(value));
+        return code?.Value ?? code?.ValueCode ?? '';
+      };
+      body = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:920px"><thead><tr><th aria-label="Select" style="width:42px;padding:10px;border-bottom:1px solid #d1d5db"></th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Store</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Date</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Product</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Category</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Cost</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">THC</th></tr></thead><tbody>` + orderedPurchases.map(r => {
+        const store = stores.find(st => Number(st.StoreID) === Number(r.StoreID));
+        const pid = Number(r.PurchaseID);
+        return `<tr><td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:center;vertical-align:top"><input type="radio" name="purchaseSelect" value="${pid}" ${Number(selectedPurchaseId) === pid ? 'checked' : ''} aria-label="Select purchase"></td><td style="padding:10px;border-bottom:1px solid #e5e7eb;vertical-align:top">${escapeHtml(String(store?.Name ?? ''))}</td><td style="padding:10px;border-bottom:1px solid #e5e7eb;vertical-align:top">${escapeHtml(String(r.PurchDate ?? ''))}</td><td style="padding:10px;border-bottom:1px solid #e5e7eb;vertical-align:top">${productLines(pid, 'Product', pr => String(pr.Product ?? ''))}</td><td style="padding:10px;border-bottom:1px solid #e5e7eb;vertical-align:top">${productLines(pid, 'Category', pr => String(categoryName(pr.Category) ?? ''))}</td><td style="padding:10px;border-bottom:1px solid #e5e7eb;vertical-align:top">${productLines(pid, 'Cost', pr => formatCurrency(pr.Cost))}</td><td style="padding:10px;border-bottom:1px solid #e5e7eb;vertical-align:top">${productLines(pid, 'THC', pr => pr.THC == null || pr.THC === '' ? '' : `${Number(pr.THC).toFixed(2)}%`)}</td></tr>`;
       }).join('') + '</tbody></table></div>';
       setTimeout(() => document.querySelectorAll('input[name="purchaseSelect"]').forEach(radio => radio.addEventListener('change', e => { selectedPurchaseId = Number(e.target.value); })), 0);
     } else {
@@ -1388,7 +1401,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=46'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=47'));
   }
 </script>
 </body>
