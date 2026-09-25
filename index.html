@@ -79,7 +79,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v42</div>
+    <div id="version" class="version">v43</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
     <button class="gear-button" id="gearButton" aria-label="Application Codes" title="Application Codes">⚙</button>
   </div>
@@ -1089,6 +1089,70 @@
     });
   }
 
+  // Delete a Store and its complete dependent hierarchy in one IndexedDB
+  // transaction.  This avoids leaving orphaned Purchase rows behind if the
+  // three tables are updated separately.
+  function deleteStoreCascade(storeId) {
+    const id = Number(storeId);
+    if (!mjDB) {
+      const purchaseIds = getPurchases().filter(r => Number(r.StoreID) === id).map(r => Number(r.PurchaseID));
+      const remainingPurchases = getPurchases().filter(r => Number(r.StoreID) !== id);
+      const remainingProducts = getProducts().filter(r => !purchaseIds.includes(Number(r.PurchaseID)));
+      const remainingStores = getStores().filter(r => Number(r.StoreID) !== id);
+      saveProducts(remainingProducts);
+      savePurchases(remainingPurchases);
+      saveStores(remainingStores);
+      return Promise.resolve();
+    }
+    return new Promise((resolve, reject) => {
+      let purchaseRows = [];
+      let productRows = [];
+      const tx = mjDB.transaction(['stores','purchases','products'], 'readwrite');
+      const storesStore = tx.objectStore('stores');
+      const purchasesStore = tx.objectStore('purchases');
+      const productsStore = tx.objectStore('products');
+
+      const purchasesRequest = purchasesStore.getAll();
+      purchasesRequest.onsuccess = () => {
+        purchaseRows = purchasesRequest.result || [];
+        const productRequest = productsStore.getAll();
+        productRequest.onsuccess = () => {
+          productRows = productRequest.result || [];
+          const purchaseIds = new Set(
+            purchaseRows.filter(r => Number(r.StoreID) === id).map(r => Number(r.PurchaseID))
+          );
+          purchaseIds.forEach(purchaseId => purchasesStore.delete(purchaseId));
+          productRows
+            .filter(r => purchaseIds.has(Number(r.PurchaseID)))
+            .forEach(r => productsStore.delete(r.ProductID));
+          storesStore.delete(id);
+        };
+        productRequest.onerror = () => {
+          try { tx.abort(); } catch {}
+          reject(productRequest.error || new Error('Unable to read Purchased Products.'));
+        };
+      };
+      purchasesRequest.onerror = () => {
+        try { tx.abort(); } catch {}
+        reject(purchasesRequest.error || new Error('Unable to read Purchases.'));
+      };
+      tx.oncomplete = () => {
+        dataCache.stores = (dataCache.stores || []).filter(r => Number(r.StoreID) !== id);
+        dataCache.purchases = (dataCache.purchases || []).filter(r => Number(r.StoreID) !== id);
+        const deletedPurchaseIds = new Set(
+          purchaseRows.filter(r => Number(r.StoreID) === id).map(r => Number(r.PurchaseID))
+        );
+        dataCache.products = (dataCache.products || []).filter(r => !deletedPurchaseIds.has(Number(r.PurchaseID)));
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(dataCache.stores)); } catch {}
+        try { localStorage.setItem(PURCHASES_KEY, JSON.stringify(dataCache.purchases)); } catch {}
+        try { localStorage.setItem(PRODUCTS_KEY, JSON.stringify(dataCache.products)); } catch {}
+        resolve();
+      };
+      tx.onerror = () => reject(tx.error || new Error('Unable to delete the Store and its related records.'));
+      tx.onabort = () => reject(tx.error || new Error('Unable to delete the Store and its related records.'));
+    });
+  }
+
   function deleteSelectedStore() {
     closeActions();
     if (activeScreen !== 'Stores' || selectedStoreId == null) {
@@ -1096,35 +1160,21 @@
       return;
     }
     const deleteId = Number(selectedStoreId);
-    const stores = getStores();
-    const store = stores.find(r => Number(r.StoreID) === deleteId);
+    const store = getStores().find(r => Number(r.StoreID) === deleteId);
     if (!store) {
       showMessage('The selected Store record could not be found.');
       return;
     }
     showMessage('Are you sure you want to Delete this record?', [
-      {label:'Yes', action:() => {
-        // A Store is the parent of Purchases. Delete the Store and all
-        // Purchased Product children belonging to its Purchases.
-        const currentStores = getStores();
-        const index = currentStores.findIndex(r => Number(r.StoreID) === deleteId);
-        if (index >= 0) {
-          const purchaseIds = getPurchases()
-            .filter(r => Number(r.StoreID) === deleteId)
-            .map(r => Number(r.PurchaseID));
-          const remainingPurchases = getPurchases()
-            .filter(r => Number(r.StoreID) !== deleteId);
-          const remainingProducts = getProducts()
-            .filter(r => !purchaseIds.includes(Number(r.PurchaseID)));
-
-          saveProducts(remainingProducts);
-          savePurchases(remainingPurchases);
-          currentStores.splice(index, 1);
-          saveStores(currentStores);
+      {label:'Yes', action:async () => {
+        try {
+          await deleteStoreCascade(deleteId);
           selectedStoreId = null;
+          selectedPurchaseId = null;
+          selectedProductId = null;
           displayList();
-        } else {
-          showMessage('The selected Store record could not be found.', [{label:'Cancel', action:displayList}]);
+        } catch (error) {
+          showMessage('The Store could not be deleted with its related Purchases.', [{label:'Close', action:displayList}]);
         }
       }},
       {label:'No', action:displayList}
@@ -1187,7 +1237,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=42'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=43'));
   }
 </script>
 </body>
