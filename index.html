@@ -91,9 +91,9 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v45</div>
+    <div id="version" class="version">v46</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
-    <button class="gear-button" id="gearButton" aria-label="Application Codes" title="Application Codes">⚙</button>
+    <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
   <nav class="main-menu" aria-label="Main menu">
     <div class="menu-wrap" id="actionsWrap">
@@ -106,6 +106,7 @@
         <button role="menuitem">Import</button>
         <button role="menuitem">Export</button>
         <button role="menuitem" data-action="integrity">Integrity Check</button>
+        <button role="menuitem" data-action="clearData">Clear Data</button>
         <div class="separator" role="separator"></div>
         <button role="menuitem">Quit</button>
       </div>
@@ -145,12 +146,12 @@
   // Versioned persistence: IndexedDB is authoritative. Existing localStorage
   // data is migrated automatically on first run and retained as a backup.
   const DB_NAME = 'MJDB';
-  const DB_VERSION = 1;
+  const DB_VERSION = 2;
   const IDB_TABLES = {
     stores:    {name:'stores', key:'StoreID', localKey:STORAGE_KEY},
     purchases: {name:'purchases', key:'PurchaseID', localKey:PURCHASES_KEY},
     products:  {name:'products', key:'ProductID', localKey:PRODUCTS_KEY},
-    lookupCodes:{name:'lookupCodes', key:'LookupCodeID', localKey:LOOKUP_KEY}
+    lookupCodes:{name:'systemLookupCodes', key:'LookupCodeID', localKey:LOOKUP_KEY}
   };
   let mjDB = null;
   let dataCache = {stores:[], purchases:[], products:[], lookupCodes:[]};
@@ -168,6 +169,24 @@
       const request = indexedDB.open(DB_NAME, DB_VERSION);
       request.onupgradeneeded = event => {
         const db = event.target.result;
+        const tx = event.target.transaction;
+        // v2 renames the physical IndexedDB object store from lookupCodes to
+        // systemLookupCodes while preserving every existing record.
+        if (!db.objectStoreNames.contains('systemLookupCodes')) {
+          const newStore = db.createObjectStore('systemLookupCodes', {keyPath:'LookupCodeID'});
+          if (db.objectStoreNames.contains('lookupCodes')) {
+            const oldStore = tx.objectStore('lookupCodes');
+            oldStore.openCursor().onsuccess = e => {
+              const cursor = e.target.result;
+              if (cursor) {
+                newStore.put(cursor.value);
+                cursor.continue();
+              } else {
+                try { db.deleteObjectStore('lookupCodes'); } catch {}
+              }
+            };
+          }
+        }
         Object.values(IDB_TABLES).forEach(t => {
           if (!db.objectStoreNames.contains(t.name)) db.createObjectStore(t.name, {keyPath:t.key});
         });
@@ -840,7 +859,7 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'ApplicationCodes.csv';
+    a.download = 'SystemLookupCodes.csv';
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -879,7 +898,7 @@
       const headers = rows[0].map(h => h.trim());
       const required = ['GroupCode','Order','ValueCode'];
       if (!required.every(h => headers.includes(h))) {
-        showMessage('The selected CSV file does not contain the required Application Codes columns: GroupCode, Order, ValueCode.'); return;
+        showMessage('The selected CSV file does not contain the required System Lookup Codes columns: GroupCode, Order, ValueCode.'); return;
       }
       const index = Object.fromEntries(headers.map((h,i)=>[h,i]));
       const imported = [];
@@ -916,13 +935,13 @@
       saveLookupCodes(imported);
       selectedLookupId = imported.length ? imported[0].LookupCodeID : null;
       displayApplicationCodes();
-      showMessage(`${imported.length} Application Code record${imported.length === 1 ? '' : 's'} imported.`);
+      showMessage(`${imported.length} System Lookup Code record${imported.length === 1 ? '' : 's'} imported.`);
     } catch (err) { showMessage('The selected CSV file could not be read.'); }
   }
 
   function isApplicationCodesScreenDisplayed() {
     const heading = document.querySelector('#mainContent h2.form-title');
-    return !!heading && heading.textContent.trim() === 'Application Codes';
+    return !!heading && heading.textContent.trim() === 'System Lookup Codes';
   }
 
   // Import a single CSV file directly.  Do not request directory access:
@@ -934,7 +953,7 @@
     input.type = 'file';
     input.accept = '.csv,text/csv';
     input.addEventListener('change', async () => {
-      // Canceling the picker leaves the existing Application Codes data intact.
+      // Canceling the picker leaves the existing System Lookup Codes data intact.
       if (!input.files || input.files.length === 0) return;
       const file = input.files[0];
       if (!/\.csv$/i.test(file.name)) {
@@ -968,7 +987,7 @@
     mainContent.innerHTML = `
       <section class="content-card">
         <div class="form-area">
-          <h2 class="form-title">Application Code - ${isChange ? 'Change' : 'Add'}</h2>
+          <h2 class="form-title">System Lookup Code - ${isChange ? 'Change' : 'Add'}</h2>
           <div class="form-row"><span class="form-label">Group Code</span><span class="form-colon">:</span><input class="form-input group-code-input" id="codeGroup" type="text" maxlength="2" aria-label="Group Code" value="${isChange ? escapeHtml(record.GroupCode || '') : ''}"></div>
           <div class="form-row"><span class="form-label">Order</span><span class="form-colon">:</span><input class="form-input short-code-input" id="codeOrder" type="text" inputmode="numeric" maxlength="3" aria-label="Order" value="${isChange ? escapeHtml(String(record.Order ?? '')) : ''}"></div>
           <div class="form-row"><span class="form-label">Value Code</span><span class="form-colon">:</span><input class="form-input value-code-input" id="codeValueCode" type="text" maxlength="5" aria-label="Value Code" value="${isChange ? escapeHtml(record.ValueCode || '') : ''}"></div>
@@ -1035,7 +1054,7 @@
     mainContent.innerHTML = `
       <section class="content-card">
         <div class="form-area">
-          <h2 class="form-title">Application Codes</h2>
+          <h2 class="form-title">System Lookup Codes</h2>
           <div class="purchase-adjusters">
             <button type="button" class="small-button" id="codesPlus" aria-label="Plus">+</button>
             <button type="button" class="small-button" id="codesMinus" aria-label="Minus">-</button>
@@ -1056,7 +1075,7 @@
     document.getElementById('codesPlus').addEventListener('click', displayApplicationCodeAdd);
     document.getElementById('codesChange').addEventListener('click', () => {
       if (selectedLookupId == null) {
-        showMessage('Please select an Application Code record before choosing Change.');
+        showMessage('Please select an System Lookup Code record before choosing Change.');
         return;
       }
       const record = getLookupCodes().find(r => Number(r.LookupCodeID) === Number(selectedLookupId));
@@ -1069,7 +1088,7 @@
     });
     document.getElementById('codesMinus').addEventListener('click', () => {
       if (selectedLookupId == null) {
-        showMessage('Please select an Application Code record before choosing Delete.');
+        showMessage('Please select an System Lookup Code record before choosing Delete.');
         return;
       }
       const deleteId = Number(selectedLookupId);
@@ -1100,6 +1119,48 @@
       document.title = `MJ - ${activeScreen}`;
       displayList();
     });
+  }
+
+  // Delete all operational data while preserving System Lookup Codes.
+  async function clearOperationalData() {
+    closeActions();
+    const stores = getStores().length;
+    const purchases = getPurchases().length;
+    const products = getProducts().length;
+    showMessage(
+      `Delete all Stores, Purchases, and Purchased Products?\n\nStores: ${stores}\nPurchases: ${purchases}\nPurchased Products: ${products}\n\nSystem Lookup Codes will NOT be deleted.`,
+      [
+        {label:'Yes', action: async () => {
+          try {
+            if (mjDB) {
+              await new Promise((resolve, reject) => {
+                const tx = mjDB.transaction(['stores','purchases','products'], 'readwrite');
+                ['stores','purchases','products'].forEach(name => tx.objectStore(name).clear());
+                tx.oncomplete = resolve;
+                tx.onerror = () => reject(tx.error || new Error('Unable to clear data.'));
+                tx.onabort = () => reject(tx.error || new Error('Unable to clear data.'));
+              });
+            }
+            dataCache.stores = [];
+            dataCache.purchases = [];
+            dataCache.products = [];
+            try { localStorage.removeItem(STORAGE_KEY); } catch {}
+            try { localStorage.removeItem(PURCHASES_KEY); } catch {}
+            try { localStorage.removeItem(PRODUCTS_KEY); } catch {}
+            selectedStoreId = null;
+            selectedPurchaseId = null;
+            selectedProductId = null;
+            pendingPurchaseId = null;
+            pendingPurchaseStoreId = null;
+            pendingPurchaseDate = null;
+            showMessage('Stores, Purchases, and Purchased Products have been deleted. System Lookup Codes were preserved.', [{label:'Close', action:displayList}]);
+          } catch (error) {
+            showMessage('The data could not be cleared. No further changes were made.', [{label:'Close', action:displayList}]);
+          }
+        }},
+        {label:'No', action:displayList}
+      ]
+    );
   }
 
   // Read-only database integrity check.  Read directly from IndexedDB when
@@ -1286,23 +1347,25 @@
       }
       else if (event.target.dataset.action === 'integrity') {
         displayIntegrityCheck();
+      } else if (event.target.dataset.action === 'clearData') {
+        clearOperationalData();
       }
       else if (event.target.textContent === 'Export') {
         closeActions();
-        // Application Codes is opened by the Gear button and does not change
+        // System Lookup Codes is opened by the Gear button and does not change
         // the active main-menu item. Check the displayed screen itself first.
         const applicationCodesVisible = isApplicationCodesScreenDisplayed();
         if (applicationCodesVisible) exportApplicationCodesCsv();
         else if (activeScreen === 'Purchases') exportPurchasesCsv();
-        else showMessage('Export is available when the Purchases or Application Codes screen is active.');
+        else showMessage('Export is available when the Purchases or System Lookup Codes screen is active.');
       } else if (event.target.textContent === 'Import') {
         closeActions();
-        // Application Codes is opened by the Gear button and does not change
+        // System Lookup Codes is opened by the Gear button and does not change
         // the active main-menu item. Check the displayed screen itself first.
         const applicationCodesVisible = isApplicationCodesScreenDisplayed();
         if (applicationCodesVisible) importApplicationCodesFromDownload();
         else if (activeScreen === 'Purchases') importPurchasesFromDirectory();
-        else showMessage('Import is available when the Purchases or Application Codes screen is active.');
+        else showMessage('Import is available when the Purchases or System Lookup Codes screen is active.');
       } else closeActions();
     }
   });
@@ -1325,7 +1388,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=45'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=46'));
   }
 </script>
 </body>
