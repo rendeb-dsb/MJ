@@ -79,7 +79,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v41</div>
+    <div id="version" class="version">v42</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
     <button class="gear-button" id="gearButton" aria-label="Application Codes" title="Application Codes">⚙</button>
   </div>
@@ -1104,10 +1104,21 @@
     }
     showMessage('Are you sure you want to Delete this record?', [
       {label:'Yes', action:() => {
-        // Purchases and Usage tables will provide related-record checks when implemented.
+        // A Store is the parent of Purchases. Delete the Store and all
+        // Purchased Product children belonging to its Purchases.
         const currentStores = getStores();
         const index = currentStores.findIndex(r => Number(r.StoreID) === deleteId);
         if (index >= 0) {
+          const purchaseIds = getPurchases()
+            .filter(r => Number(r.StoreID) === deleteId)
+            .map(r => Number(r.PurchaseID));
+          const remainingPurchases = getPurchases()
+            .filter(r => Number(r.StoreID) !== deleteId);
+          const remainingProducts = getProducts()
+            .filter(r => !purchaseIds.includes(Number(r.PurchaseID)));
+
+          saveProducts(remainingProducts);
+          savePurchases(remainingPurchases);
           currentStores.splice(index, 1);
           saveStores(currentStores);
           selectedStoreId = null;
@@ -1176,7 +1187,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=41'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=42'));
   }
 </script>
 </body>
