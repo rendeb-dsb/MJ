@@ -91,7 +91,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v47</div>
+    <div id="version" class="version">v48</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
@@ -393,6 +393,7 @@
       mainContent.innerHTML = `
         <section class="content-card">
           <div class="form-area">
+            <h2 class="form-title purchase-screen-title">Purchase</h2>
             <div class="form-row">
               <span class="form-label">Store</span><span class="form-colon">:</span>
               <select class="form-input purchase-store" aria-label="Store" ${orderedStores.length ? '' : 'disabled'}>
@@ -1401,7 +1402,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=47'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=48'));
   }
 </script>
 </body>
