@@ -91,7 +91,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v48</div>
+    <div id="version" class="version">v49</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
@@ -325,10 +325,14 @@
         const code = lookupCodes.find(c => Number(c.LookupCodeID) === Number(value));
         return code?.Value ?? code?.ValueCode ?? '';
       };
-      body = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:920px"><thead><tr><th aria-label="Select" style="width:42px;padding:10px;border-bottom:1px solid #d1d5db"></th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Store</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Date</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Product</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Category</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Cost</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">THC</th></tr></thead><tbody>` + orderedPurchases.map(r => {
+      body = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:620px"><thead><tr><th aria-label="Select" style="width:42px;padding:10px;border-bottom:1px solid #d1d5db"></th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Store</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Date</th></tr></thead><tbody>` + orderedPurchases.map(r => {
         const store = stores.find(st => Number(st.StoreID) === Number(r.StoreID));
         const pid = Number(r.PurchaseID);
-        return `<tr><td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:center;vertical-align:top"><input type="radio" name="purchaseSelect" value="${pid}" ${Number(selectedPurchaseId) === pid ? 'checked' : ''} aria-label="Select purchase"></td><td style="padding:10px;border-bottom:1px solid #e5e7eb;vertical-align:top">${escapeHtml(String(store?.Name ?? ''))}</td><td style="padding:10px;border-bottom:1px solid #e5e7eb;vertical-align:top">${escapeHtml(String(r.PurchDate ?? ''))}</td><td style="padding:10px;border-bottom:1px solid #e5e7eb;vertical-align:top">${productLines(pid, 'Product', pr => String(pr.Product ?? ''))}</td><td style="padding:10px;border-bottom:1px solid #e5e7eb;vertical-align:top">${productLines(pid, 'Category', pr => String(categoryName(pr.Category) ?? ''))}</td><td style="padding:10px;border-bottom:1px solid #e5e7eb;vertical-align:top">${productLines(pid, 'Cost', pr => formatCurrency(pr.Cost))}</td><td style="padding:10px;border-bottom:1px solid #e5e7eb;vertical-align:top">${productLines(pid, 'THC', pr => pr.THC == null || pr.THC === '' ? '' : `${Number(pr.THC).toFixed(2)}%`)}</td></tr>`;
+        const rows = products.filter(pr => Number(pr.PurchaseID) === pid).sort((a,b) => Number(a.ProductID) - Number(b.ProductID));
+        const productTable = rows.length
+          ? `<table style="width:100%;border-collapse:collapse;table-layout:auto"><thead><tr><th style="text-align:left;padding:7px 8px;font-weight:700">Product</th><th style="text-align:left;padding:7px 8px;font-weight:700">Category</th><th style="text-align:left;padding:7px 8px;font-weight:700">Cost</th><th style="text-align:left;padding:7px 8px;font-weight:700">THC</th></tr></thead><tbody>` + rows.map(pr => `<tr><td style="padding:6px 8px;vertical-align:top">${escapeHtml(String(pr.Product ?? ''))}</td><td style="padding:6px 8px;vertical-align:top">${escapeHtml(String(categoryName(pr.Category) ?? ''))}</td><td style="padding:6px 8px;vertical-align:top">${formatCurrency(pr.Cost)}</td><td style="padding:6px 8px;vertical-align:top">${pr.THC == null || pr.THC === '' ? '' : `${Number(pr.THC).toFixed(2)}%`}</td></tr>`).join('') + `</tbody></table>`
+          : '';
+        return `<tr><td style="padding:10px;border-bottom:0;text-align:center;vertical-align:top"><input type="radio" name="purchaseSelect" value="${pid}" ${Number(selectedPurchaseId) === pid ? 'checked' : ''} aria-label="Select purchase"></td><td style="padding:10px;border-bottom:0;vertical-align:top">${escapeHtml(String(store?.Name ?? ''))}</td><td style="padding:10px;border-bottom:0;vertical-align:top">${escapeHtml(String(r.PurchDate ?? ''))}</td></tr><tr><td style="padding:0;border-bottom:1px solid #e5e7eb"></td><td colspan="2" style="padding:0 8px 10px 0;border-bottom:1px solid #e5e7eb;vertical-align:top">${productTable}</td></tr>`;
       }).join('') + '</tbody></table></div>';
       setTimeout(() => document.querySelectorAll('input[name="purchaseSelect"]').forEach(radio => radio.addEventListener('change', e => { selectedPurchaseId = Number(e.target.value); })), 0);
     } else {
