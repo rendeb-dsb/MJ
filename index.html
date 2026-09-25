@@ -74,12 +74,24 @@
   .csv-file-button:last-child { border-bottom:0; }
   .csv-file-button:hover, .csv-file-button:focus-visible { background:#f3f4f6; outline:none; }
   @media (min-width:600px) { .screen-title { font-size:32px; } .version { font-size:11px; } }
+
+    .integrity-card { max-width: 900px; }
+    .integrity-summary { display:flex; flex-wrap:wrap; gap:18px; padding:14px 0; font-size:16px; }
+    .integrity-section { margin-top:18px; }
+    .integrity-section h3 { margin:0 0 6px; font-size:18px; }
+    .integrity-description { margin-bottom:8px; font-size:14px; }
+    .integrity-table-wrap { overflow:auto; border:1px solid #d1d5db; border-radius:6px; max-height:38vh; }
+    .integrity-table-wrap table { width:100%; border-collapse:collapse; min-width:420px; }
+    .integrity-table-wrap th, .integrity-table-wrap td { text-align:left; padding:9px; border-bottom:1px solid #e5e7eb; }
+    .integrity-table-wrap th { font-weight:700; background:#f3f4f6; position:sticky; top:0; }
+    .integrity-none { padding:10px 0; }
+    .integrity-footer { display:flex; justify-content:center; margin-top:20px; padding-top:14px; border-top:1px solid #d1d5db; }
 </style>
 </head>
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v44</div>
+    <div id="version" class="version">v45</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
     <button class="gear-button" id="gearButton" aria-label="Application Codes" title="Application Codes">⚙</button>
   </div>
@@ -1090,7 +1102,79 @@
     });
   }
 
-  // Read-only database integrity check.  It reports child rows whose\n  // foreign-key parent does not exist; it does not modify any data.\n  function displayIntegrityCheck() {\n    closeActions();\n    const stores = getStores();\n    const purchases = getPurchases();\n    const products = getProducts();\n    const storeIds = new Set(stores.map(r => Number(r.StoreID)));\n    const purchaseIds = new Set(purchases.map(r => Number(r.PurchaseID)));\n    const orphanPurchases = purchases\n      .filter(r => !storeIds.has(Number(r.StoreID)))\n      .sort((a,b) => Number(a.PurchaseID) - Number(b.PurchaseID));\n    const orphanProducts = products\n      .filter(r => !purchaseIds.has(Number(r.PurchaseID)))\n      .sort((a,b) => Number(a.ProductID) - Number(b.ProductID));\n\n    const rows = [];\n    rows.push(`<div style="margin-bottom:12px"><strong>Database Integrity Check</strong></div>`);\n    rows.push(`<div style="line-height:1.7">Stores: ${stores.length}<br>Purchases: ${purchases.length}<br>Purchased Products: ${products.length}</div>`);\n\n    rows.push(`<div style="margin-top:16px"><strong>Orphaned Purchases: ${orphanPurchases.length}</strong></div>`);\n    if (orphanPurchases.length) {\n      rows.push(`<div style="overflow:auto;max-height:30vh;margin-top:6px;border:1px solid #d1d5db;border-radius:6px"><table style="width:100%;border-collapse:collapse;min-width:330px"><thead><tr><th style="text-align:left;padding:7px;border-bottom:1px solid #d1d5db">PurchaseID</th><th style="text-align:left;padding:7px;border-bottom:1px solid #d1d5db">StoreID</th><th style="text-align:left;padding:7px;border-bottom:1px solid #d1d5db">Date</th></tr></thead><tbody>` +\n        orphanPurchases.map(r => `<tr><td style="padding:7px;border-bottom:1px solid #e5e7eb">${escapeHtml(String(r.PurchaseID ?? ''))}</td><td style="padding:7px;border-bottom:1px solid #e5e7eb">${escapeHtml(String(r.StoreID ?? ''))}</td><td style="padding:7px;border-bottom:1px solid #e5e7eb">${escapeHtml(String(r.PurchDate ?? ''))}</td></tr>`).join('') +\n        `</tbody></table></div>`);\n    } else {\n      rows.push(`<div style="margin-top:6px;color:#166534">None found.</div>`);\n    }\n\n    rows.push(`<div style="margin-top:16px"><strong>Orphaned Purchased Products: ${orphanProducts.length}</strong></div>`);\n    if (orphanProducts.length) {\n      rows.push(`<div style="overflow:auto;max-height:30vh;margin-top:6px;border:1px solid #d1d5db;border-radius:6px"><table style="width:100%;border-collapse:collapse;min-width:360px"><thead><tr><th style="text-align:left;padding:7px;border-bottom:1px solid #d1d5db">ProductID</th><th style="text-align:left;padding:7px;border-bottom:1px solid #d1d5db">PurchaseID</th><th style="text-align:left;padding:7px;border-bottom:1px solid #d1d5db">Product</th></tr></thead><tbody>` +\n        orphanProducts.map(r => `<tr><td style="padding:7px;border-bottom:1px solid #e5e7eb">${escapeHtml(String(r.ProductID ?? ''))}</td><td style="padding:7px;border-bottom:1px solid #e5e7eb">${escapeHtml(String(r.PurchaseID ?? ''))}</td><td style="padding:7px;border-bottom:1px solid #e5e7eb">${escapeHtml(String(r.Product ?? ''))}</td></tr>`).join('') +\n        `</tbody></table></div>`);\n    } else {\n      rows.push(`<div style="margin-top:6px;color:#166534">None found.</div>`);\n    }\n\n    const existing = document.getElementById('integrityReport');\n    if (existing) existing.remove();\n    const box = document.createElement('div');\n    box.id = 'integrityReport';\n    box.style.cssText = 'position:fixed;left:16px;right:16px;top:8%;bottom:8%;z-index:2000;background:white;border:1px solid #9ca3af;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.25);padding:18px;max-width:720px;margin:auto;overflow:auto;';\n    box.innerHTML = `<div style="font-size:16px;line-height:1.5">${rows.join('')}</div><div style="display:flex;justify-content:center;margin-top:18px;padding-top:14px;border-top:1px solid #d1d5db"><button class="form-button" id="integrityCloseButton">Close</button></div>`;\n    document.body.appendChild(box);\n    document.getElementById('integrityCloseButton').addEventListener('click', () => box.remove());\n  }\n\n  // Delete a Store and its complete dependent hierarchy in one IndexedDB
+  // Read-only database integrity check.  Read directly from IndexedDB when
+  // available so the report reflects the authoritative database, not a stale
+  // screen cache.  The check never changes any data.
+  async function displayIntegrityCheck() {
+    const returnScreen = activeScreen;
+    closeActions();
+    try {
+      let stores = getStores();
+      let purchases = getPurchases();
+      let products = getProducts();
+      if (mjDB) {
+        [stores, purchases, products] = await Promise.all([
+          readAllFromIDB('stores'),
+          readAllFromIDB('purchases'),
+          readAllFromIDB('products')
+        ]);
+      }
+
+      const storeIds = new Set(stores.map(r => Number(r.StoreID)));
+      const purchaseIds = new Set(purchases.map(r => Number(r.PurchaseID)));
+      const orphanPurchases = purchases
+        .filter(r => !storeIds.has(Number(r.StoreID)))
+        .sort((a,b) => Number(a.PurchaseID) - Number(b.PurchaseID));
+      const orphanProducts = products
+        .filter(r => !purchaseIds.has(Number(r.PurchaseID)))
+        .sort((a,b) => Number(a.ProductID) - Number(b.ProductID));
+
+      const purchaseRows = orphanPurchases.length
+        ? `<div class="integrity-table-wrap"><table><thead><tr><th>PurchaseID</th><th>StoreID</th><th>Date</th></tr></thead><tbody>` +
+          orphanPurchases.map(r => `<tr><td>${escapeHtml(String(r.PurchaseID ?? ''))}</td><td>${escapeHtml(String(r.StoreID ?? ''))}</td><td>${escapeHtml(String(r.PurchDate ?? ''))}</td></tr>`).join('') +
+          `</tbody></table></div>`
+        : `<div class="integrity-none">None found.</div>`;
+
+      const productRows = orphanProducts.length
+        ? `<div class="integrity-table-wrap"><table><thead><tr><th>ProductID</th><th>PurchaseID</th><th>Product</th></tr></thead><tbody>` +
+          orphanProducts.map(r => `<tr><td>${escapeHtml(String(r.ProductID ?? ''))}</td><td>${escapeHtml(String(r.PurchaseID ?? ''))}</td><td>${escapeHtml(String(r.Product ?? ''))}</td></tr>`).join('') +
+          `</tbody></table></div>`
+        : `<div class="integrity-none">None found.</div>`;
+
+      mainContent.innerHTML = `
+        <section class="content-card integrity-card">
+          <div class="content-heading">Database Integrity Check</div>
+          <div class="integrity-summary">
+            <div>Stores: <strong>${stores.length}</strong></div>
+            <div>Purchases: <strong>${purchases.length}</strong></div>
+            <div>Purchased Products: <strong>${products.length}</strong></div>
+          </div>
+          <div class="integrity-section">
+            <h3>Orphaned Purchases: ${orphanPurchases.length}</h3>
+            <div class="integrity-description">Purchases whose StoreID does not match an existing Store.</div>
+            ${purchaseRows}
+          </div>
+          <div class="integrity-section">
+            <h3>Orphaned Purchased Products: ${orphanProducts.length}</h3>
+            <div class="integrity-description">Purchased Products whose PurchaseID does not match an existing Purchase.</div>
+            ${productRows}
+          </div>
+          <div class="integrity-footer"><button class="form-button" id="integrityCloseButton">Close</button></div>
+        </section>`;
+
+      document.getElementById('integrityCloseButton').addEventListener('click', () => {
+        activeScreen = returnScreen;
+        buttons.forEach(b => b.classList.toggle('active', b.dataset.screen === activeScreen));
+        title.textContent = `MJ - ${activeScreen}`;
+        document.title = `MJ - ${activeScreen}`;
+        displayList();
+      });
+    } catch (error) {
+      showMessage('The Integrity Check could not read the database.', [{label:'Close', action:() => displayList()}]);
+    }
+  }
+
+  // Delete a Store and its complete dependent hierarchy in one IndexedDB
   // transaction.  This avoids leaving orphaned Purchase rows behind if the
   // three tables are updated separately.
   function deleteStoreCascade(storeId) {
@@ -1241,7 +1325,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=43'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=45'));
   }
 </script>
 </body>
