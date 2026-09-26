@@ -76,6 +76,7 @@
   @media (min-width:600px) { .screen-title { font-size:32px; } .version { font-size:11px; } }
 
 
+    .usage-elapsed { min-height:26px; display:none; align-items:center; justify-content:center; background:var(--header-bg); color:white; font-size:14px; font-weight:400; padding:3px 8px 5px; border-top:1px solid rgba(255,255,255,.08); }
     .usage-product-info { font-size:16px; font-weight:700; padding:10px 0 14px; }
     .usage-area-title { margin:14px 0 8px; font-size:18px; font-weight:700; }
     .usage-list { border:1px solid var(--border); border-radius:6px; overflow:hidden; }
@@ -107,10 +108,11 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v67</div>
+    <div id="version" class="version">v68</div>
     <div id="screenTitle" class="screen-title">MJ - Usage</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
+  <div id="usageElapsed" class="usage-elapsed" aria-live="polite">Time since last usage: 00:00:00</div>
   <nav class="main-menu" aria-label="Main menu">
     <div class="menu-wrap" id="actionsWrap">
       <button class="menu-item" id="actionsButton" aria-haspopup="true" aria-expanded="false">Actions</button>
@@ -405,6 +407,37 @@
   }
 
   function getUsageRows() { return dataCache.usages || []; }
+  function getTimeSinceLastUsage() {
+    const rows = getUsageRows();
+    if (!rows.length) return '00:00:00';
+    const latest = rows.reduce((best, row) => {
+      const bid = Number(best?.UsageID);
+      const rid = Number(row?.UsageID);
+      return (!Number.isFinite(bid) || (Number.isFinite(rid) && rid > bid)) ? row : best;
+    }, null);
+    if (!latest) return '00:00:00';
+    const dateMatch = String(latest.Date || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    const timeMatch = String(latest.Time || '').match(/^(\d{2}):(\d{2})$/);
+    if (!dateMatch || !timeMatch) return '00:00:00';
+    const usedAt = new Date(Number(dateMatch[3]), Number(dateMatch[1]) - 1, Number(dateMatch[2]), Number(timeMatch[1]), Number(timeMatch[2]), 0, 0);
+    if (Number.isNaN(usedAt.getTime())) return '00:00:00';
+    const elapsedMs = Math.max(0, Date.now() - usedAt.getTime());
+    const totalMinutes = Math.floor(elapsedMs / 60000);
+    const days = Math.floor(totalMinutes / 1440);
+    const hours = Math.floor((totalMinutes % 1440) / 60);
+    const minutes = totalMinutes % 60;
+    return `${String(days).padStart(2,'0')}:${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}`;
+  }
+  function refreshUsageElapsedMessage() {
+    const el = document.getElementById('usageElapsed');
+    if (!el) return;
+    if (activeScreen === 'Usage') {
+      el.textContent = `Time since last usage: ${getTimeSinceLastUsage()}`;
+      el.style.display = 'flex';
+    } else {
+      el.style.display = 'none';
+    }
+  }
   function saveUsageRows(rows) { persistTable('usages', rows); }
   function getUsageProductInfo(productId) {
     const product = getProducts().find(p => Number(p.ProductID) === Number(productId));
@@ -449,6 +482,7 @@
 
   function displayUsageScreen(prepareSelection = false) {
     closeActions();
+    refreshUsageElapsedMessage();
     const available = getAvailableProducts();
     if (prepareSelection) prepareUsageScreenSelection(available);
     if (selectedUsageProductId != null && !available.some(p => Number(p.ProductID) === Number(selectedUsageProductId))) selectedUsageProductId = null;
@@ -1605,6 +1639,7 @@
       buttons.forEach(b => b.classList.toggle('active', b.dataset.screen === activeScreen));
       title.textContent = `MJ - ${activeScreen}`;
       document.title = `MJ - ${activeScreen}`;
+      refreshUsageElapsedMessage();
       displayList();
     });
   }
@@ -1946,7 +1981,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=67'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=68'));
   }
 </script>
 </body>
