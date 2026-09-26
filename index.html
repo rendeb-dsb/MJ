@@ -80,10 +80,16 @@
     .usage-area-title { margin:14px 0 8px; font-size:18px; font-weight:700; }
     .usage-list { border:1px solid var(--border); border-radius:6px; overflow:hidden; }
     .usage-list table { width:100%; border-collapse:collapse; }
-    .usage-list th, .usage-list td { padding:7px 8px; border-bottom:1px solid #e5e7eb; text-align:left; }
+    .usage-list th, .usage-list td { padding:5.5px 8px; border-bottom:1px solid #e5e7eb; text-align:left; }
     .usage-list th { background:#f3f4f6; font-weight:700; }
     .usage-empty { padding:16px; color:#6b7280; }
     .usage-mask { letter-spacing:.02em; }
+    .usage-datetime-row { display:flex; align-items:center; gap:18px; margin:0 0 14px; flex-wrap:nowrap; }
+    .usage-datetime-group { display:flex; align-items:center; min-width:0; }
+    .usage-datetime-group .form-label { font-size:16px; }
+    .usage-datetime-group .form-colon { margin-left:4px; margin-right:8px; }
+    .usage-date-control { flex:0 0 50%; width:50%; max-width:260px; }
+    .usage-time-control { flex:0 0 33.333%; width:33.333%; max-width:180px; }
 
     .integrity-card { max-width: 900px; }
     .integrity-summary { display:flex; flex-wrap:wrap; gap:18px; padding:14px 0; font-size:16px; }
@@ -101,7 +107,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v64</div>
+    <div id="version" class="version">v65</div>
     <div id="screenTitle" class="screen-title">MJ - Usage</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
@@ -451,6 +457,83 @@
     if (!getUsageRows().some(r=>Number(r.UsageID)===id)) { selectedUsageId=null; displayUsageScreen(); return; }
     showMessage('Delete this Usage record?', [{label:'Yes',action:()=>{ saveUsageRows(getUsageRows().filter(r=>Number(r.UsageID)!==id)); selectedUsageId=null; displayUsageScreen(); }},{label:'No',action:displayUsageScreen}]);
   }
+  // Fixed masks used everywhere Date/Time are edited. Slashes/colon are
+  // permanent separators; Backspace/Delete affect only the selected digit slot.
+  function applyMaskedValue(input, kind) {
+    const raw = String(input.value || '');
+    const digits = raw.replace(/\D/g,'').slice(0, kind === 'date' ? 8 : 4);
+    if (kind === 'date') {
+      const a = digits.slice(0,2).padEnd(2,'_');
+      const b = digits.slice(2,4).padEnd(2,'_');
+      const c = digits.slice(4,8).padEnd(4,'_');
+      input.value = `${a}/${b}/${c}`;
+    } else {
+      const a = digits.slice(0,2).padEnd(2,'_');
+      const b = digits.slice(2,4).padEnd(2,'_');
+      input.value = `${a}:${b}`;
+    }
+  }
+
+  function attachFixedMask(input, kind, onChange) {
+    const max = kind === 'date' ? 10 : 5;
+    applyMaskedValue(input, kind);
+    input.setAttribute('maxlength', String(max));
+    const notify = () => { if (typeof onChange === 'function') onChange(); };
+    input.addEventListener('keydown', e => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const allowed = ['Tab','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'];
+      if (allowed.includes(e.key)) return;
+      const start = input.selectionStart ?? 0;
+      const end = input.selectionEnd ?? start;
+      const sep = kind === 'date' ? '/' : ':';
+      const isDigit = /^\d$/.test(e.key);
+      if (isDigit || e.key === 'Backspace' || e.key === 'Delete') e.preventDefault();
+      else { e.preventDefault(); return; }
+
+      let chars = input.value.padEnd(max, '_').slice(0,max).split('');
+      const clearRange = () => {
+        const a=Math.max(0,start), b=Math.min(max,end);
+        for(let i=a;i<b;i++) if(chars[i] !== sep) chars[i]='_';
+      };
+      if (end > start) {
+        clearRange();
+        if (isDigit) {
+          let pos=start;
+          while(pos<max && chars[pos]===sep) pos++;
+          if(pos<max){ chars[pos]=e.key; pos++; if(pos<max && chars[pos]===sep) pos++; input.value=chars.join(''); input.setSelectionRange(pos,pos); notify(); return; }
+        }
+        input.value=chars.join(''); input.setSelectionRange(start,start); notify(); return;
+      }
+      if (isDigit) {
+        let pos=start;
+        if(pos<max && chars[pos]===sep) pos++;
+        if(pos<max){ chars[pos]=e.key; pos++; if(pos<max && chars[pos]===sep) pos++; }
+        input.value=chars.join(''); input.setSelectionRange(pos,pos); notify(); return;
+      }
+      if (e.key === 'Backspace') {
+        let pos=start-1;
+        if(pos>=0 && chars[pos]===sep) pos--;
+        if(pos>=0){ chars[pos]='_'; input.value=chars.join(''); input.setSelectionRange(pos,pos); notify(); }
+        return;
+      }
+      if (e.key === 'Delete') {
+        let pos=start;
+        if(pos<max && chars[pos]===sep) pos++;
+        if(pos<max){ chars[pos]='_'; input.value=chars.join(''); input.setSelectionRange(pos,pos); notify(); }
+      }
+    });
+    input.addEventListener('paste', e => {
+      e.preventDefault();
+      const text=(e.clipboardData || window.clipboardData)?.getData('text') || '';
+      const digits=text.replace(/\D/g,'').slice(0, kind==='date'?8:4);
+      let chars=input.value.split('');
+      let pos=input.selectionStart ?? 0;
+      const sep=kind==='date'?'/':':';
+      for(const d of digits){ while(pos<chars.length && chars[pos]===sep) pos++; if(pos>=chars.length) break; chars[pos]=d; pos++; }
+      input.value=chars.join(''); input.setSelectionRange(pos,pos); notify();
+    });
+  }
+
   function displayUsageForm(mode='add') {
     closeActions();
     const isChange = mode === 'change';
@@ -461,10 +544,10 @@
     if (!info) { showMessage('Please select a Product before adding Usage.', [{label:'Close', action:displayUsageScreen}]); return; }
     const dateValue = isChange ? String(usage.Date || '') : currentDateString();
     const timeValue = isChange ? String(usage.Time || '') : currentTimeString();
-    mainContent.innerHTML = `<section class="content-card"><div class="form-area"><h2 class="form-title">${isChange?'Change Usage':'Add Usage'}</h2><div class="usage-product-info">${escapeHtml(String(info.storeName))} --> ${escapeHtml(String(info.productName))} --> ${escapeHtml(String(info.thc))}</div><div class="form-row"><span class="form-label">Date</span><span class="form-colon">:</span><input class="form-input usage-mask" id="usageDateInput" type="text" inputmode="numeric" maxlength="10" aria-label="Date" value="${escapeHtml(dateValue)}"></div><div class="form-row"><span class="form-label">Time</span><span class="form-colon">:</span><input class="form-input usage-mask" id="usageTimeInput" type="text" inputmode="numeric" maxlength="5" aria-label="Time" value="${escapeHtml(timeValue)}"></div><div class="form-actions"><button class="form-button save" id="usageSaveButton">Save</button><button class="form-button cancel" id="usageCancelButton">Cancel</button></div></div></section>`;
+    mainContent.innerHTML = `<section class="content-card"><div class="form-area"><h2 class="form-title">${isChange?'Change Usage':'Add Usage'}</h2><div class="usage-product-info">${escapeHtml(String(info.storeName))} --> ${escapeHtml(String(info.productName))} --> ${escapeHtml(String(info.thc))}</div><div class="usage-datetime-row"><div class="usage-datetime-group"><span class="form-label">Date</span><span class="form-colon">:</span><input class="form-input usage-mask usage-date-control" id="usageDateInput" type="text" inputmode="numeric" maxlength="10" aria-label="Date" value="${escapeHtml(dateValue)}"></div><div class="usage-datetime-group"><span class="form-label">Time</span><span class="form-colon">:</span><input class="form-input usage-mask usage-time-control" id="usageTimeInput" type="text" inputmode="numeric" maxlength="5" aria-label="Time" value="${escapeHtml(timeValue)}"></div></div><div class="form-actions"><button class="form-button save" id="usageSaveButton">Save</button><button class="form-button cancel" id="usageCancelButton">Cancel</button></div></div></section>`;
     const dateInput=document.getElementById('usageDateInput'); const timeInput=document.getElementById('usageTimeInput');
-    dateInput.addEventListener('input',()=>{let d=dateInput.value.replace(/\D/g,'').slice(0,8); let o=''; if(d.length) o+=d.slice(0,2); if(d.length>2)o+='/'+d.slice(2,4); if(d.length>4)o+='/'+d.slice(4,8); dateInput.value=o;});
-    timeInput.addEventListener('input',()=>{let d=timeInput.value.replace(/\D/g,'').slice(0,4); let o=''; if(d.length)o+=d.slice(0,2); if(d.length>2)o+=':'+d.slice(2,4); timeInput.value=o;});
+    attachFixedMask(dateInput, 'date');
+    attachFixedMask(timeInput, 'time');
     document.getElementById('usageCancelButton').addEventListener('click',displayUsageScreen);
     document.getElementById('usageSaveButton').addEventListener('click',()=>{
       const date=dateInput.value.trim(), time=timeInput.value.trim();
@@ -643,7 +726,7 @@
               const hasProducts = getProductsForPurchaseGroup(storeId, pendingPurchaseDate).length > 0;
               minus.style.display = hasProducts ? '' : 'none';
               minus.disabled = !hasProducts;
-              document.getElementById('purchase-date').value = pendingPurchaseDate;
+              dateInput.value = pendingPurchaseDate;
             }},
             {label:'Cancel', action:() => {
               pendingPurchaseId = null; pendingPurchaseStoreId = null; pendingPurchaseDate = null; selectedProductId = null;
@@ -789,13 +872,7 @@
       }
 
       const dateInput = document.querySelector('.purchase-date');
-      dateInput.addEventListener('input', () => {
-        let digits = dateInput.value.replace(/\D/g, '').slice(0, 8);
-        let out = '';
-        if (digits.length > 0) out += digits.slice(0, 2);
-        if (digits.length > 2) out += '/' + digits.slice(2, 4);
-        if (digits.length > 4) out += '/' + digits.slice(4, 8);
-        dateInput.value = out;
+      attachFixedMask(dateInput, 'date', () => {
         if (isChangePurchase) {
           if (isValidPurchaseDate(dateInput.value.trim()) && dateInput.value.trim() !== String(changePurchaseRow.PurchDate || '')) {
             const newDate = dateInput.value.trim();
@@ -1852,7 +1929,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=63'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=65'));
   }
 </script>
 </body>
