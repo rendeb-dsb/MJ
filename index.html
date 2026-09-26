@@ -75,6 +75,16 @@
   .csv-file-button:hover, .csv-file-button:focus-visible { background:#f3f4f6; outline:none; }
   @media (min-width:600px) { .screen-title { font-size:32px; } .version { font-size:11px; } }
 
+
+    .usage-product-info { font-size:16px; font-weight:700; padding:10px 0 14px; }
+    .usage-area-title { margin:14px 0 8px; font-size:18px; font-weight:700; }
+    .usage-list { border:1px solid var(--border); border-radius:6px; overflow:hidden; }
+    .usage-list table { width:100%; border-collapse:collapse; }
+    .usage-list th, .usage-list td { padding:9px 8px; border-bottom:1px solid #e5e7eb; text-align:left; }
+    .usage-list th { background:#f3f4f6; font-weight:700; }
+    .usage-empty { padding:16px; color:#6b7280; }
+    .usage-mask { letter-spacing:.02em; }
+
     .integrity-card { max-width: 900px; }
     .integrity-summary { display:flex; flex-wrap:wrap; gap:18px; padding:14px 0; font-size:16px; }
     .integrity-section { margin-top:18px; }
@@ -91,8 +101,8 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v62</div>
-    <div id="screenTitle" class="screen-title">MJ - Stores</div>
+    <div id="version" class="version">v63</div>
+    <div id="screenTitle" class="screen-title">MJ - Usage</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
   <nav class="main-menu" aria-label="Main menu">
@@ -113,9 +123,9 @@
         <button role="menuitem">Quit</button>
       </div>
     </div>
-    <button class="menu-item active" data-screen="Stores">Stores</button>
+    <button class="menu-item active" data-screen="Usage">Usage</button>
+    <button class="menu-item" data-screen="Stores">Stores</button>
     <button class="menu-item" data-screen="Purchases">Purchases</button>
-    <div class="usage-menu-wrap"><button class="menu-item" data-screen="Usage">Usage</button></div>
   </nav>
 </header>
 <main id="mainContent"></main>
@@ -126,13 +136,15 @@
   const actionsMenu = document.getElementById('actionsMenu');
   const actionsWrap = document.getElementById('actionsWrap');
   const mainContent = document.getElementById('mainContent');
-  let activeScreen = 'Stores';
+  let activeScreen = 'Usage';
   let selectedStoreId = null;
   let selectedProductId = null;
   let selectedPurchaseId = null;
   let pendingPurchaseStoreId = null;
   let pendingPurchaseId = null;
   let pendingPurchaseDate = null;
+  let selectedUsageProductId = null;
+  let selectedUsageId = null;
 
   function closeActions() {
     actionsMenu.classList.remove('open');
@@ -148,15 +160,16 @@
   // Versioned persistence: IndexedDB is authoritative. Existing localStorage
   // data is migrated automatically on first run and retained as a backup.
   const DB_NAME = 'MJDB';
-  const DB_VERSION = 3;
+  const DB_VERSION = 4;
   const IDB_TABLES = {
     stores:    {name:'stores', key:'StoreID', localKey:STORAGE_KEY},
     purchases: {name:'purchases', key:'PurchaseID', localKey:PURCHASES_KEY},
     products:  {name:'products', key:'ProductID', localKey:PRODUCTS_KEY},
-    lookupCodes:{name:'systemLookupCodes', key:'LookupCodeID', localKey:LOOKUP_KEY}
+    lookupCodes:{name:'systemLookupCodes', key:'LookupCodeID', localKey:LOOKUP_KEY},
+    usages:    {name:'usages', key:'UsageID', localKey:'mj_usages'}
   };
   let mjDB = null;
-  let dataCache = {stores:[], purchases:[], products:[], lookupCodes:[]};
+  let dataCache = {stores:[], purchases:[], products:[], lookupCodes:[], usages:[]};
 
   function parseLocalBackup(key) {
     try {
@@ -261,6 +274,7 @@
       dataCache.purchases = parseLocalBackup(PURCHASES_KEY);
       dataCache.products = parseLocalBackup(PRODUCTS_KEY);
       dataCache.lookupCodes = parseLocalBackup(LOOKUP_KEY);
+      dataCache.usages = parseLocalBackup('mj_usages');
       window.mjPersistenceReady = false;
     }
   }
@@ -317,6 +331,10 @@
     const stores = activeScreen === 'Stores' ? getStores() : [];
     const purchases = activeScreen === 'Purchases' ? getPurchases() : [];
     let body = '';
+    if (activeScreen === 'Usage') {
+      displayUsageScreen();
+      return;
+    }
     if (activeScreen === 'Stores' && stores.length) {
       const orderedStores = stores.slice().sort((a,b) => Number(a.Order) - Number(b.Order) || Number(a.StoreID) - Number(b.StoreID));
       body = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:760px"><thead><tr><th aria-label="Select" style="width:42px;padding:10px;border-bottom:1px solid #d1d5db"></th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Order</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Name</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Address1</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Address2</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">City</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">State</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Zip</th></tr></thead><tbody>` + orderedStores.map(r => `<tr><td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:center"><input type="radio" name="storeSelect" value="${r.StoreID}" ${Number(selectedStoreId) === Number(r.StoreID) ? 'checked' : ''} aria-label="Select store"></td>${['Order','Name','Address1','Address2','City','State','Zip'].map(k => `<td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(r[k] ?? '')}</td>`).join('')}</tr>`).join('') + '</tbody></table></div>';
@@ -378,6 +396,85 @@
     const [m,d,y] = value.split('/').map(Number);
     const dt = new Date(y, m - 1, d);
     return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
+  }
+
+  function getUsageRows() { return dataCache.usages || []; }
+  function saveUsageRows(rows) { persistTable('usages', rows); }
+  function getUsageProductInfo(productId) {
+    const product = getProducts().find(p => Number(p.ProductID) === Number(productId));
+    if (!product) return null;
+    const purchase = getPurchases().find(x => Number(x.PurchaseID) === Number(product.PurchaseID));
+    const store = purchase ? getStores().find(x => Number(x.StoreID) === Number(purchase.StoreID)) : null;
+    return { product, purchase, store, storeName: store?.Name ?? '', productName: product.Product ?? '', thc: product.THC == null || product.THC === '' ? '' : `${Number(product.THC).toFixed(2)}%` };
+  }
+  function getAvailableInUseKey() {
+    const codes = getInUseOptions();
+    const available = codes.find(c => String(c.Value ?? '').trim().toUpperCase() === 'AVAILABLE');
+    return available ? Number(available.LookupCodeID) : 8;
+  }
+  function getAvailableProducts() {
+    const key = getAvailableInUseKey();
+    return getProducts().filter(p => Number(p.InUse) === key).sort((a,b) => Number(a.ProductID) - Number(b.ProductID));
+  }
+  function usageSort(rows) {
+    return rows.slice().sort((a,b) => {
+      const ad = String(a.Date || ''); const bd = String(b.Date || '');
+      const at = String(a.Time || ''); const bt = String(b.Time || '');
+      const ap = ad + ' ' + at, bp = bd + ' ' + bt;
+      const parse = x => { const m=x.match(/^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})$/); return m ? new Date(Number(m[3]),Number(m[1])-1,Number(m[2]),Number(m[4]),Number(m[5])).getTime() : 0; };
+      return parse(bp) - parse(ap) || Number(b.UsageID)-Number(a.UsageID);
+    });
+  }
+  function displayUsageScreen() {
+    closeActions();
+    const available = getAvailableProducts();
+    if (selectedUsageProductId != null && !available.some(p => Number(p.ProductID) === Number(selectedUsageProductId))) selectedUsageProductId = null;
+    const selected = available.find(p => Number(p.ProductID) === Number(selectedUsageProductId));
+    const usageRows = selected ? usageSort(getUsageRows().filter(u => Number(u.ProductID) === Number(selected.ProductID))) : [];
+    const productRows = available.length ? available.map(p => {
+      const info = getUsageProductInfo(p.ProductID);
+      return `<tr><td style="width:42px;padding:10px;border-bottom:1px solid #e5e7eb;text-align:center"><input type="radio" name="availableProductSelect" value="${Number(p.ProductID)}" ${Number(selectedUsageProductId)===Number(p.ProductID)?'checked':''} aria-label="Select product for usage"></td><td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(String(info?.storeName ?? ''))} --> ${escapeHtml(String(info?.productName ?? ''))} --> ${escapeHtml(String(info?.thc ?? ''))}</td></tr>`;
+    }).join('') : `<tr><td class="usage-empty">No Products are currently In Use.</td></tr>`;
+    const usageBody = selected ? (usageRows.length ? `<table><thead><tr><th style="width:42px"></th><th>Date</th><th>Time</th></tr></thead><tbody>${usageRows.map(u => `<tr><td style="text-align:center"><input type="radio" name="usageRecordSelect" value="${Number(u.UsageID)}" ${Number(selectedUsageId)===Number(u.UsageID)?'checked':''} aria-label="Select usage record"></td><td>${escapeHtml(String(u.Date ?? ''))}</td><td>${escapeHtml(String(u.Time ?? ''))}</td></tr>`).join('')}</tbody></table>` : `<div class="usage-empty">No Usage records for this Product.</div>`) : `<div class="usage-empty">Select a Product above to display its Usage records.</div>`;
+    mainContent.innerHTML = `<section class="content-card"><div class="form-area"><h2 class="form-title">Usage</h2><div class="usage-area-title">Products In Use</div><div class="usage-list"><table><tbody>${productRows}</tbody></table></div><div class="usage-area-title">Usage</div><div class="usage-list">${usageBody}</div></div></section>`;
+    document.querySelectorAll('input[name="availableProductSelect"]').forEach(r => r.addEventListener('change', e => { selectedUsageProductId = Number(e.target.value); selectedUsageId = null; displayUsageScreen(); }));
+    document.querySelectorAll('input[name="usageRecordSelect"]').forEach(r => r.addEventListener('change', e => { selectedUsageId = Number(e.target.value); }));
+  }
+  function currentDateString() { const d=new Date(); return `${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}/${d.getFullYear()}`; }
+  function currentTimeString() { const d=new Date(); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
+  function validUsageDate(v) { return isValidPurchaseDate(v); }
+  function validUsageTime(v) { if(!/^\d{2}:\d{2}$/.test(v)) return false; const [h,m]=v.split(':').map(Number); return h>=0&&h<=23&&m>=0&&m<=59; }
+  function deleteSelectedUsage() {
+    closeActions();
+    if (selectedUsageId == null) { showMessage('Please select a Usage record before choosing Delete.', [{label:'Close',action:()=>{}}]); return; }
+    const id=Number(selectedUsageId);
+    if (!getUsageRows().some(r=>Number(r.UsageID)===id)) { selectedUsageId=null; displayUsageScreen(); return; }
+    showMessage('Delete this Usage record?', [{label:'Yes',action:()=>{ saveUsageRows(getUsageRows().filter(r=>Number(r.UsageID)!==id)); selectedUsageId=null; displayUsageScreen(); }},{label:'No',action:displayUsageScreen}]);
+  }
+  function displayUsageForm(mode='add') {
+    closeActions();
+    const isChange = mode === 'change';
+    let usage = isChange ? getUsageRows().find(r => Number(r.UsageID) === Number(selectedUsageId)) : null;
+    if (isChange && !usage) { showMessage('Please select a Usage record before choosing Change.', [{label:'Close', action:displayUsageScreen}]); return; }
+    const productId = isChange ? Number(usage.ProductID) : Number(selectedUsageProductId);
+    const info = getUsageProductInfo(productId);
+    if (!info) { showMessage('Please select a Product before adding Usage.', [{label:'Close', action:displayUsageScreen}]); return; }
+    const dateValue = isChange ? String(usage.Date || '') : currentDateString();
+    const timeValue = isChange ? String(usage.Time || '') : currentTimeString();
+    mainContent.innerHTML = `<section class="content-card"><div class="form-area"><h2 class="form-title">${isChange?'Change Usage':'Add Usage'}</h2><div class="usage-product-info">${escapeHtml(String(info.storeName))} --> ${escapeHtml(String(info.productName))} --> ${escapeHtml(String(info.thc))}</div><div class="form-row"><span class="form-label">Date</span><span class="form-colon">:</span><input class="form-input usage-mask" id="usageDateInput" type="text" inputmode="numeric" maxlength="10" aria-label="Date" value="${escapeHtml(dateValue)}"></div><div class="form-row"><span class="form-label">Time</span><span class="form-colon">:</span><input class="form-input usage-mask" id="usageTimeInput" type="text" inputmode="numeric" maxlength="5" aria-label="Time" value="${escapeHtml(timeValue)}"></div><div class="form-actions"><button class="form-button save" id="usageSaveButton">Save</button><button class="form-button cancel" id="usageCancelButton">Cancel</button></div></div></section>`;
+    const dateInput=document.getElementById('usageDateInput'); const timeInput=document.getElementById('usageTimeInput');
+    dateInput.addEventListener('input',()=>{let d=dateInput.value.replace(/\D/g,'').slice(0,8); let o=''; if(d.length) o+=d.slice(0,2); if(d.length>2)o+='/'+d.slice(2,4); if(d.length>4)o+='/'+d.slice(4,8); dateInput.value=o;});
+    timeInput.addEventListener('input',()=>{let d=timeInput.value.replace(/\D/g,'').slice(0,4); let o=''; if(d.length)o+=d.slice(0,2); if(d.length>2)o+=':'+d.slice(2,4); timeInput.value=o;});
+    document.getElementById('usageCancelButton').addEventListener('click',displayUsageScreen);
+    document.getElementById('usageSaveButton').addEventListener('click',()=>{
+      const date=dateInput.value.trim(), time=timeInput.value.trim();
+      if(!validUsageDate(date)){showMessage('Enter a valid Date in mm/dd/yyyy format.',[{label:'Close',action:()=>{}}]);return;}
+      if(!validUsageTime(time)){showMessage('Enter a valid Time in hh:mm format.',[{label:'Close',action:()=>{}}]);return;}
+      const rows=getUsageRows().map(r=>({...r}));
+      if(isChange){ const idx=rows.findIndex(r=>Number(r.UsageID)===Number(usage.UsageID)); if(idx<0){showMessage('The selected Usage record could not be found.',[{label:'Close',action:displayUsageScreen}]);return;} rows[idx]={...rows[idx],Date:date,Time:time,ProductID:productId}; selectedUsageId=Number(usage.UsageID); }
+      else { const next=rows.reduce((m,r)=>Math.max(m,Number(r.UsageID)||0),0)+1; rows.push({UsageID:next,ProductID:productId,Date:date,Time:time}); selectedUsageId=next; }
+      saveUsageRows(rows); displayUsageScreen();
+    });
   }
 
   function displayAddForm(mode = 'add') {
@@ -821,6 +918,7 @@
     showMessage('Delete this record?', [
       {label:'Yes', action:() => {
         const rows = getProducts().filter(r => Number(r.ProductID) !== productId);
+        saveUsageRows(getUsageRows().filter(u => Number(u.ProductID) !== productId));
         saveProducts(rows);
         selectedProductId = null;
         displayAddForm('add');
@@ -852,6 +950,8 @@
       {label:'Yes', action:async () => {
         const purchaseRows = getPurchases().filter(r => Number(r.PurchaseID) !== purchaseId);
         const productRows = getProducts().filter(r => Number(r.PurchaseID) !== purchaseId);
+        const deletedProductIds = new Set(getProducts().filter(r => Number(r.PurchaseID) === purchaseId).map(r => Number(r.ProductID)));
+        saveUsageRows(getUsageRows().filter(u => !deletedProductIds.has(Number(u.ProductID))));
         saveProducts(productRows);
         savePurchases(purchaseRows);
         selectedPurchaseId = null;
@@ -878,7 +978,7 @@
   }
 
   function inUseName(value) {
-    const codes = getSystemLookupCodes().filter(c => String(c.GroupCode ?? '').trim().toUpperCase() === 'IU');
+    const codes = getLookupCodes().filter(c => String(c.GroupCode ?? '').trim().toUpperCase() === 'IU');
     const match = codes.find(c => Number(c.LookupCodeID) === Number(value));
     return match ? String(match.Value ?? '') : '';
   }
@@ -1422,14 +1522,14 @@
     const purchases = getPurchases().length;
     const products = getProducts().length;
     showMessage(
-      `Delete all Stores, Purchases, and Purchased Products?\n\nStores: ${stores}\nPurchases: ${purchases}\nPurchased Products: ${products}\n\nSystem Lookup Codes will NOT be deleted.`,
+      `Delete all Stores, Purchases, Purchased Products, and Usage records?\n\nStores: ${stores}\nPurchases: ${purchases}\nPurchased Products: ${products}\nUsage records: ${getUsageRows().length}\n\nSystem Lookup Codes will NOT be deleted.`,
       [
         {label:'Yes', action: async () => {
           try {
             if (mjDB) {
               await new Promise((resolve, reject) => {
-                const tx = mjDB.transaction(['stores','purchases','products'], 'readwrite');
-                ['stores','purchases','products'].forEach(name => tx.objectStore(name).clear());
+                const tx = mjDB.transaction(['stores','purchases','products','usages'], 'readwrite');
+                ['stores','purchases','products','usages'].forEach(name => tx.objectStore(name).clear());
                 tx.oncomplete = resolve;
                 tx.onerror = () => reject(tx.error || new Error('Unable to clear data.'));
                 tx.onabort = () => reject(tx.error || new Error('Unable to clear data.'));
@@ -1588,6 +1688,8 @@
       const purchaseIds = getPurchases().filter(r => Number(r.StoreID) === id).map(r => Number(r.PurchaseID));
       const remainingPurchases = getPurchases().filter(r => Number(r.StoreID) !== id);
       const remainingProducts = getProducts().filter(r => !purchaseIds.includes(Number(r.PurchaseID)));
+      const deletedProductIds = new Set(getProducts().filter(r => purchaseIds.includes(Number(r.PurchaseID))).map(r=>Number(r.ProductID)));
+      saveUsageRows(getUsageRows().filter(u => !deletedProductIds.has(Number(u.ProductID))));
       const remainingStores = getStores().filter(r => Number(r.StoreID) !== id);
       saveProducts(remainingProducts);
       savePurchases(remainingPurchases);
@@ -1597,10 +1699,11 @@
     return new Promise((resolve, reject) => {
       let purchaseRows = [];
       let productRows = [];
-      const tx = mjDB.transaction(['stores','purchases','products'], 'readwrite');
+      const tx = mjDB.transaction(['stores','purchases','products','usages'], 'readwrite');
       const storesStore = tx.objectStore('stores');
       const purchasesStore = tx.objectStore('purchases');
       const productsStore = tx.objectStore('products');
+      const usagesStore = tx.objectStore('usages');
 
       const purchasesRequest = purchasesStore.getAll();
       purchasesRequest.onsuccess = () => {
@@ -1612,9 +1715,13 @@
             purchaseRows.filter(r => Number(r.StoreID) === id).map(r => Number(r.PurchaseID))
           );
           purchaseIds.forEach(purchaseId => purchasesStore.delete(purchaseId));
-          productRows
-            .filter(r => purchaseIds.has(Number(r.PurchaseID)))
-            .forEach(r => productsStore.delete(r.ProductID));
+          const deletedProductIds = new Set(productRows.filter(r => purchaseIds.has(Number(r.PurchaseID))).map(r => Number(r.ProductID)));
+          productRows.filter(r => purchaseIds.has(Number(r.PurchaseID))).forEach(r => productsStore.delete(r.ProductID));
+          const usageRequest = usagesStore.getAll();
+          usageRequest.onsuccess = () => {
+            (usageRequest.result || []).filter(u => deletedProductIds.has(Number(u.ProductID))).forEach(u => usagesStore.delete(u.UsageID));
+          };
+          usageRequest.onerror = () => { try { tx.abort(); } catch {} };
           storesStore.delete(id);
         };
         productRequest.onerror = () => {
@@ -1632,10 +1739,13 @@
         const deletedPurchaseIds = new Set(
           purchaseRows.filter(r => Number(r.StoreID) === id).map(r => Number(r.PurchaseID))
         );
+        const deletedProductIds = new Set((dataCache.products || []).filter(r => deletedPurchaseIds.has(Number(r.PurchaseID))).map(r=>Number(r.ProductID)));
         dataCache.products = (dataCache.products || []).filter(r => !deletedPurchaseIds.has(Number(r.PurchaseID)));
+        dataCache.usages = (dataCache.usages || []).filter(r => !deletedProductIds.has(Number(r.ProductID)));
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(dataCache.stores)); } catch {}
         try { localStorage.setItem(PURCHASES_KEY, JSON.stringify(dataCache.purchases)); } catch {}
         try { localStorage.setItem(PRODUCTS_KEY, JSON.stringify(dataCache.products)); } catch {}
+        try { localStorage.setItem('mj_usages', JSON.stringify(dataCache.usages)); } catch {}
         resolve();
       };
       tx.onerror = () => reject(tx.error || new Error('Unable to delete the Store and its related records.'));
@@ -1682,9 +1792,10 @@
   actionsMenu.addEventListener('click', event => {
     event.stopPropagation();
     if (event.target.matches('button')) {
-      if (event.target.dataset.action === 'add') { pendingPurchaseId = null; pendingPurchaseStoreId = null; pendingPurchaseDate = null; selectedProductId = null; displayAddForm('add'); }
+      if (event.target.dataset.action === 'add') { if (activeScreen === 'Usage') { displayUsageForm('add'); } else { pendingPurchaseId = null; pendingPurchaseStoreId = null; pendingPurchaseDate = null; selectedProductId = null; displayAddForm('add'); } }
       else if (event.target.dataset.action === 'change') {
-        if (activeScreen === 'Purchases') {
+        if (activeScreen === 'Usage') { displayUsageForm('change'); }
+        else if (activeScreen === 'Purchases') {
           if (pendingPurchaseId != null && selectedProductId != null) displayAddProductForm('change');
           else if (selectedPurchaseId == null) showMessage('Please select a Purchase record before choosing Change.', [{label:'Close', action:()=>{}}]);
           else { pendingPurchaseId = Number(selectedPurchaseId); selectedProductId = null; displayAddForm('change'); }
@@ -1693,6 +1804,7 @@
       else if (event.target.dataset.action === 'delete') {
         if (activeScreen === 'Purchases') displayDeletePurchaseForm();
         else if (activeScreen === 'Stores') deleteSelectedStore();
+        else if (activeScreen === 'Usage') deleteSelectedUsage();
         else closeActions();
       }
       else if (event.target.dataset.action === 'integrity') {
@@ -1740,7 +1852,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=62'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=63'));
   }
 </script>
 </body>
