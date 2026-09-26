@@ -91,7 +91,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v50</div>
+    <div id="version" class="version">v51</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
@@ -421,7 +421,9 @@
                   <th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Product</th>
                 </tr></thead>
                 <tbody id="purchaseProductBody">${(() => {
-                  const productRows = preservePurchase ? getProducts().filter(r => Number(r.PurchaseID) === Number(pendingPurchaseId)) : [];
+                  const productRows = preservePurchase
+                    ? getProductsForPurchaseGroup(pendingPurchaseStoreId, pendingPurchaseDate)
+                    : [];
                   if (!productRows.length) return '<tr><td colspan="2" class="empty-message" style="padding:28px 10px">No products have been added.</td></tr>';
                   return productRows.map(r => `<tr><td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:center"><input type="radio" name="productSelect" value="${Number(r.ProductID)}" ${Number(selectedProductId) === Number(r.ProductID) ? 'checked' : ''} aria-label="Select purchased product"></td><td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(String(r.Product ?? ''))}</td></tr>`).join('');
                 })()}</tbody>
@@ -446,15 +448,12 @@
         let productRows = [];
 
         if (preservePurchase) {
-          productRows = getProducts().filter(r => Number(r.PurchaseID) === Number(pendingPurchaseId));
+          productRows = getProductsForPurchaseGroup(pendingPurchaseStoreId, pendingPurchaseDate);
         } else if (storeValue && isValidPurchaseDate(dateValue)) {
           // For a new Purchase screen, show products already purchased at the
-          // selected Store on the selected Date.  There may be more than one
-          // Purchase record for the same Store/Date, so include all of them.
-          const matchingPurchaseIds = getPurchases()
-            .filter(r => Number(r.StoreID) === Number(storeValue) && String(r.PurchDate || '') === dateValue)
-            .map(r => Number(r.PurchaseID));
-          productRows = getProducts().filter(r => matchingPurchaseIds.includes(Number(r.PurchaseID)));
+          // selected Store on the selected Date. Include all Purchase records
+          // for that Store/Date if legacy duplicate Purchase records exist.
+          productRows = getProductsForPurchaseGroup(Number(storeValue), dateValue);
         }
 
         if (!productRows.some(r => Number(r.ProductID) === Number(selectedProductId))) selectedProductId = null;
@@ -468,7 +467,7 @@
 
       document.getElementById('purchaseMinus').addEventListener('click', () => {
         if (pendingPurchaseId == null) return;
-        const productRows = getProducts().filter(r => Number(r.PurchaseID) === Number(pendingPurchaseId));
+        const productRows = getProductsForPurchaseGroup(pendingPurchaseStoreId, pendingPurchaseDate);
         if (!productRows.length) return;
         if (selectedProductId == null || !productRows.some(r => Number(r.ProductID) === Number(selectedProductId))) {
           showMessage('Select a Purchased Product before deleting.', [{label:'Close', action:()=>{}}]);
@@ -477,7 +476,7 @@
         displayDeleteProductForm();
       });
       document.querySelectorAll('input[name="productSelect"]').forEach(radio => radio.addEventListener('change', e => { selectedProductId = Number(e.target.value); }));
-      if (preservePurchase) { const hasProducts = getProducts().some(r => Number(r.PurchaseID) === Number(pendingPurchaseId)); document.getElementById('saveButton').disabled = false; document.getElementById('saveButton').textContent = 'Close'; document.getElementById('cancelButton').style.display = 'none'; document.getElementById('purchasePlus').disabled = false; const minus = document.getElementById('purchaseMinus'); minus.style.display = hasProducts ? '' : 'none'; minus.disabled = !hasProducts; }
+      if (preservePurchase) { const hasProducts = getProductsForPurchaseGroup(pendingPurchaseStoreId, pendingPurchaseDate).length > 0; document.getElementById('saveButton').disabled = false; document.getElementById('saveButton').textContent = 'Close'; document.getElementById('cancelButton').style.display = 'none'; document.getElementById('purchasePlus').disabled = false; const minus = document.getElementById('purchaseMinus'); minus.style.display = hasProducts ? '' : 'none'; minus.disabled = !hasProducts; }
 
       const saveButton = document.getElementById('saveButton');
       const closeSavedPurchase = () => {
@@ -504,15 +503,45 @@
             showMessage('Enter a valid date before saving.', [{label:'Close', action:()=>{}}]);
             return;
           }
-          pendingPurchaseStoreId = Number(selectedStore);
-          pendingPurchaseDate = date;
-          pendingPurchaseId = addPurchaseRecord(pendingPurchaseStoreId, pendingPurchaseDate);
-          selectedPurchaseId = pendingPurchaseId;
+
+          const storeId = Number(selectedStore);
+          const matchingPurchases = getPurchases()
+            .filter(r => Number(r.StoreID) === storeId && String(r.PurchDate || '') === date)
+            .sort((a,b) => Number(a.PurchaseID) - Number(b.PurchaseID));
+
+          if (matchingPurchases.length) {
+            // Reuse the first existing Purchase for this Store/Date rather
+            // than creating another Purchase record.  Legacy duplicate
+            // Purchase rows, if present, are left intact and their Products
+            // are all shown together below.
+            const firstPurchase = matchingPurchases[0];
+            const rows = getPurchases().map(r => ({...r}));
+            const index = rows.findIndex(r => Number(r.PurchaseID) === Number(firstPurchase.PurchaseID));
+            if (index >= 0) {
+              rows[index].StoreID = storeId;
+              rows[index].PurchDate = date;
+              savePurchases(rows);
+            }
+            pendingPurchaseStoreId = storeId;
+            pendingPurchaseDate = date;
+            pendingPurchaseId = Number(firstPurchase.PurchaseID);
+            selectedPurchaseId = pendingPurchaseId;
+          } else {
+            pendingPurchaseStoreId = storeId;
+            pendingPurchaseDate = date;
+            pendingPurchaseId = addPurchaseRecord(pendingPurchaseStoreId, pendingPurchaseDate);
+            selectedPurchaseId = pendingPurchaseId;
+          }
+
+          // The saved Purchase is now the active editing context.  Show all
+          // existing Products for this Store/Date and enable both controls.
+          renderPurchaseProductRows();
           const plus = document.getElementById('purchasePlus');
           const minus = document.getElementById('purchaseMinus');
+          const hasProducts = getProductsForPurchaseGroup(storeId, date).length > 0;
           plus.disabled = false;
-          minus.style.display = 'none';
-          minus.disabled = true;
+          minus.style.display = hasProducts ? '' : 'none';
+          minus.disabled = !hasProducts;
           const cancelButton = document.getElementById('cancelButton');
           cancelButton.style.display = 'none';
           saveButton.textContent = 'Close';
@@ -611,7 +640,7 @@
   function displayDeleteProductForm() {
     closeActions();
     const productId = Number(selectedProductId);
-    const product = getProducts().find(r => Number(r.ProductID) === productId && Number(r.PurchaseID) === Number(pendingPurchaseId));
+    const product = getProducts().find(r => Number(r.ProductID) === productId);
     if (!product) {
       showMessage('Select a Purchased Product before deleting.', [{label:'Close', action:()=>{}}]);
       return;
@@ -821,6 +850,19 @@
     rows.push({PurchaseID: nextId, StoreID: Number(storeId), PurchDate: purchDate});
     savePurchases(rows);
     return nextId;
+  }
+
+  function getPurchaseIdsForStoreDate(storeId, purchDate) {
+    const ids = getPurchases()
+      .filter(r => Number(r.StoreID) === Number(storeId) && String(r.PurchDate || '') === String(purchDate || ''))
+      .map(r => Number(r.PurchaseID))
+      .filter(id => Number.isFinite(id));
+    return ids;
+  }
+
+  function getProductsForPurchaseGroup(storeId, purchDate) {
+    const purchaseIds = new Set(getPurchaseIdsForStoreDate(storeId, purchDate));
+    return getProducts().filter(r => purchaseIds.has(Number(r.PurchaseID)));
   }
 
   function exportPurchasesCsv() {
@@ -1442,7 +1484,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=48'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=51'));
   }
 </script>
 </body>
