@@ -91,7 +91,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v59</div>
+    <div id="version" class="version">v61</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
@@ -233,9 +233,9 @@
         dataCache[cacheName] = rows;
       }
       const normalizedProducts = normalizeProductRows(dataCache.products);
-      const inUseResetKey = 'mj_v59_inuse_reset_done';
+      const inUseResetKey = 'mj_v61_inuse_reset_done';
       if (!localStorage.getItem(inUseResetKey)) {
-        // v59 requirement: every Product record that already exists is reset to 0.
+        // v61 requirement: every Product record that already exists is reset to 0.
         const resetProducts = normalizedProducts.map(r => ({...r, InUse: 0}));
         dataCache.products = resetProducts;
         await replaceIDBStore(IDB_TABLES.products.name, resetProducts);
@@ -335,12 +335,12 @@
         const code = lookupCodes.find(c => Number(c.LookupCodeID) === Number(value));
         return code?.Value ?? '';
       };
-      body = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:760px;table-layout:fixed"><colgroup><col style="width:42px"><col style="width:27%"><col style="width:31%"><col style="width:10%"><col style="width:12%"><col style="width:20%"></colgroup><thead><tr><th aria-label="Select" style="padding:10px;border-bottom:1px solid #d1d5db"></th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Date</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Store</th><th style="padding:10px;border-bottom:1px solid #d1d5db"></th><th style="padding:10px;border-bottom:1px solid #d1d5db"></th><th style="padding:10px;border-bottom:1px solid #d1d5db"></th></tr></thead><tbody>` + orderedPurchases.map(r => {
+      body = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:760px;table-layout:fixed"><colgroup><col style="width:42px"><col style="width:23%"><col style="width:31%"><col style="width:10%"><col style="width:16%"><col style="width:20%"></colgroup><thead><tr><th aria-label="Select" style="padding:10px;border-bottom:1px solid #d1d5db"></th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Date</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Store</th><th style="padding:10px;border-bottom:1px solid #d1d5db"></th><th style="padding:10px;border-bottom:1px solid #d1d5db"></th><th style="padding:10px;border-bottom:1px solid #d1d5db"></th></tr></thead><tbody>` + orderedPurchases.map(r => {
         const store = stores.find(st => Number(st.StoreID) === Number(r.StoreID));
         const pid = Number(r.PurchaseID);
         const rows = products.filter(pr => Number(pr.PurchaseID) === pid).sort((a,b) => Number(a.ProductID) - Number(b.ProductID));
         const productTable = rows.length
-          ? `<table style="width:100%;border-collapse:collapse;table-layout:fixed"><colgroup><col style="width:23%"><col style="width:27%"><col style="width:10%"><col style="width:20%"><col style="width:20%"></colgroup><thead><tr><th style="text-align:left;padding:7px 8px;font-weight:700">Category</th><th style="text-align:left;padding:7px 8px;font-weight:700">Product</th><th style="text-align:left;padding:7px 8px;font-weight:700">In Use</th><th style="text-align:left;padding:7px 8px;font-weight:700">Cost</th><th style="text-align:left;padding:7px 8px;font-weight:700">THC</th></tr></thead><tbody>` + rows.map(pr => `<tr><td style="padding:6px 8px;vertical-align:top">${escapeHtml(String(categoryName(pr.Category) ?? ''))}</td><td style="padding:6px 8px;vertical-align:top">${escapeHtml(String(pr.Product ?? ''))}</td><td style="padding:6px 8px;vertical-align:top">${escapeHtml(String(inUseName(pr.InUse) ?? ''))}</td><td style="padding:6px 8px;vertical-align:top">${formatCurrency(pr.Cost)}</td><td style="padding:6px 8px;vertical-align:top">${pr.THC == null || pr.THC === '' ? '' : `${Number(pr.THC).toFixed(2)}%`}</td></tr>`).join('') + `</tbody></table>`
+          ? `<table style="width:100%;border-collapse:collapse;table-layout:fixed"><colgroup><col style="width:23%"><col style="width:31%"><col style="width:10%"><col style="width:20%"><col style="width:16%"></colgroup><thead><tr><th style="text-align:left;padding:7px 8px;font-weight:700">Category</th><th style="text-align:left;padding:7px 8px;font-weight:700">Product</th><th style="text-align:left;padding:7px 8px;font-weight:700">In Use</th><th style="text-align:left;padding:7px 8px;font-weight:700">Cost</th><th style="text-align:left;padding:7px 8px;font-weight:700">THC</th></tr></thead><tbody>` + rows.map(pr => `<tr><td style="padding:6px 8px;vertical-align:top">${escapeHtml(String(categoryName(pr.Category) ?? ''))}</td><td style="padding:6px 8px;vertical-align:top">${escapeHtml(String(pr.Product ?? ''))}</td><td style="padding:6px 8px;vertical-align:top">${escapeHtml(String(inUseName(pr.InUse) ?? ''))}</td><td style="padding:6px 8px;vertical-align:top">${formatCurrency(pr.Cost)}</td><td style="padding:6px 8px;vertical-align:top">${pr.THC == null || pr.THC === '' ? '' : `${Number(pr.THC).toFixed(2)}%`}</td></tr>`).join('') + `</tbody></table>`
           : '';
         return `<tr><td style="padding:10px;border-bottom:0;text-align:center;vertical-align:top"><input type="radio" name="purchaseSelect" value="${pid}" ${Number(selectedPurchaseId) === pid ? 'checked' : ''} aria-label="Select purchase"></td><td style="padding:10px;border-bottom:0;vertical-align:top">${escapeHtml(String(r.PurchDate ?? ''))}</td><td style="padding:10px;border-bottom:0;vertical-align:top">${escapeHtml(String(store?.Name ?? ''))}</td><td style="padding:10px;border-bottom:0"></td><td style="padding:10px;border-bottom:0"></td><td style="padding:10px;border-bottom:0"></td></tr><tr><td style="padding:0;border-bottom:1px solid #e5e7eb"></td><td colspan="5" style="padding:0 8px 10px 0;border-bottom:1px solid #e5e7eb;vertical-align:top">${productTable}</td></tr>`;
       }).join('') + '</tbody></table></div>';
@@ -1350,10 +1350,11 @@
     const rows = getLookupCodes();
     const tableRows = rows.length ? rows.map(r => `<tr>
       <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:center"><input type="radio" name="lookupSelect" value="${r.LookupCodeID}" ${Number(selectedLookupId)===Number(r.LookupCodeID)?'checked':''} aria-label="Select application code"></td>
+      <td class="slc-code-col" style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(String(r.LookupCodeID ?? ''))}</td>
       <td class="group-col" style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(r.GroupCode)}</td>
       <td class="order-col" style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(r.Order)}</td>
       <td class="value-code-col" style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(r.ValueCode || '')}</td>
-      <td class="value-col" style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(r.Value)}</td></tr>`).join('') : `<tr><td colspan="5" class="empty-message" style="padding:28px 10px">No LookupCodes have been added.</td></tr>`;
+      <td class="value-col" style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(r.Value)}</td></tr>`).join('') : `<tr><td colspan="6" class="empty-message" style="padding:28px 10px">No LookupCodes have been added.</td></tr>`;
     mainContent.innerHTML = `
       <section class="content-card">
         <div class="form-area">
@@ -1366,6 +1367,7 @@
           <h2 class="form-title purchase-section-title">LookupCodes</h2>
           <div class="purchase-product-list lookup-list"><table style="width:100%;border-collapse:collapse"><thead><tr>
             <th aria-label="Select" style="width:42px;padding:10px;border-bottom:1px solid #d1d5db"></th>
+            <th class="slc-code-col stacked-header" style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">SLC<br>Code</th>
             <th class="group-col stacked-header" style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Group<br>Code</th>
             <th class="order-col" style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Order</th>
             <th class="value-code-col stacked-header" style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Value<br>Code</th>
@@ -1749,7 +1751,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=59'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=60'));
   }
 </script>
 </body>
