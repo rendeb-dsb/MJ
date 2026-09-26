@@ -80,7 +80,7 @@
     .usage-area-title { margin:14px 0 8px; font-size:18px; font-weight:700; }
     .usage-list { border:1px solid var(--border); border-radius:6px; overflow:hidden; }
     .usage-list table { width:100%; border-collapse:collapse; }
-    .usage-list th, .usage-list td { padding:9px 8px; border-bottom:1px solid #e5e7eb; text-align:left; }
+    .usage-list th, .usage-list td { padding:7px 8px; border-bottom:1px solid #e5e7eb; text-align:left; }
     .usage-list th { background:#f3f4f6; font-weight:700; }
     .usage-empty { padding:16px; color:#6b7280; }
     .usage-mask { letter-spacing:.02em; }
@@ -101,7 +101,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v63</div>
+    <div id="version" class="version">v64</div>
     <div id="screenTitle" class="screen-title">MJ - Usage</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
@@ -433,7 +433,7 @@
     const usageRows = selected ? usageSort(getUsageRows().filter(u => Number(u.ProductID) === Number(selected.ProductID))) : [];
     const productRows = available.length ? available.map(p => {
       const info = getUsageProductInfo(p.ProductID);
-      return `<tr><td style="width:42px;padding:10px;border-bottom:1px solid #e5e7eb;text-align:center"><input type="radio" name="availableProductSelect" value="${Number(p.ProductID)}" ${Number(selectedUsageProductId)===Number(p.ProductID)?'checked':''} aria-label="Select product for usage"></td><td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(String(info?.storeName ?? ''))} --> ${escapeHtml(String(info?.productName ?? ''))} --> ${escapeHtml(String(info?.thc ?? ''))}</td></tr>`;
+      return `<tr><td style="width:42px;padding:8px;border-bottom:1px solid #e5e7eb;text-align:center"><input type="radio" name="availableProductSelect" value="${Number(p.ProductID)}" ${Number(selectedUsageProductId)===Number(p.ProductID)?'checked':''} aria-label="Select product for usage"></td><td style="padding:8px;border-bottom:1px solid #e5e7eb">${escapeHtml(String(info?.storeName ?? ''))} --> ${escapeHtml(String(info?.productName ?? ''))} --> ${escapeHtml(String(info?.thc ?? ''))}</td></tr>`;
     }).join('') : `<tr><td class="usage-empty">No Products are currently In Use.</td></tr>`;
     const usageBody = selected ? (usageRows.length ? `<table><thead><tr><th style="width:42px"></th><th>Date</th><th>Time</th></tr></thead><tbody>${usageRows.map(u => `<tr><td style="text-align:center"><input type="radio" name="usageRecordSelect" value="${Number(u.UsageID)}" ${Number(selectedUsageId)===Number(u.UsageID)?'checked':''} aria-label="Select usage record"></td><td>${escapeHtml(String(u.Date ?? ''))}</td><td>${escapeHtml(String(u.Time ?? ''))}</td></tr>`).join('')}</tbody></table>` : `<div class="usage-empty">No Usage records for this Product.</div>`) : `<div class="usage-empty">Select a Product above to display its Usage records.</div>`;
     mainContent.innerHTML = `<section class="content-card"><div class="form-area"><h2 class="form-title">Usage</h2><div class="usage-area-title">Products In Use</div><div class="usage-list"><table><tbody>${productRows}</tbody></table></div><div class="usage-area-title">Usage</div><div class="usage-list">${usageBody}</div></div></section>`;
