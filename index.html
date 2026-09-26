@@ -91,7 +91,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v58</div>
+    <div id="version" class="version">v59</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
@@ -233,9 +233,9 @@
         dataCache[cacheName] = rows;
       }
       const normalizedProducts = normalizeProductRows(dataCache.products);
-      const inUseResetKey = 'mj_v58_inuse_reset_done';
+      const inUseResetKey = 'mj_v59_inuse_reset_done';
       if (!localStorage.getItem(inUseResetKey)) {
-        // v58 requirement: every Product record that already exists is reset to 0.
+        // v59 requirement: every Product record that already exists is reset to 0.
         const resetProducts = normalizedProducts.map(r => ({...r, InUse: 0}));
         dataCache.products = resetProducts;
         await replaceIDBStore(IDB_TABLES.products.name, resetProducts);
@@ -878,8 +878,20 @@
   }
 
   function inUseName(value) {
-    const code = getLookupCodes().find(c => Number(c.LookupCodeID) === Number(value));
-    return code?.Value ?? '';
+    const codes = getLookupCodes().filter(c => String(c.GroupCode ?? '').toUpperCase().includes('IU'));
+    const numericValue = Number(value);
+    // InUse is initialized to 0.  A zero may be represented by the IU
+    // lookup code whose ValueCode is 0, even though its LookupCodeID is
+    // an auto-generated nonzero primary key.
+    const byPrimaryKey = codes.find(c => Number(c.LookupCodeID) === numericValue);
+    if (byPrimaryKey) return byPrimaryKey.Value ?? '';
+    if (numericValue === 0) {
+      const zeroCode = codes.find(c => String(c.ValueCode ?? '').trim() === '0');
+      if (zeroCode) return zeroCode.Value ?? '';
+      const available = codes.find(c => String(c.Value ?? '').trim().toLowerCase() === 'available');
+      if (available) return available.Value ?? '';
+    }
+    return '';
   }
 
   function normalizeProductRows(rows) {
@@ -942,7 +954,7 @@
             <div class="percentage-field"><span class="form-label">% THC</span><span class="form-colon">:</span><input class="percentage-input" id="productThcInput" type="text" inputmode="decimal" maxlength="6" aria-label="% THC" value="${existingProduct?.THC == null ? '' : escapeHtml(String(existingProduct.THC))}"></div>
             <div class="percentage-field"><span class="form-label">% CBD</span><span class="form-colon">:</span><input class="percentage-input" id="productCbdInput" type="text" inputmode="decimal" maxlength="6" aria-label="% CBD" value="${existingProduct?.CBD == null ? '' : escapeHtml(String(existingProduct.CBD))}"></div>
           </div>
-          ${isChangeProduct ? `<div class="form-row"><span class="form-label">In Use</span><span class="form-colon">:</span><select class="form-input" id="productInUseInput" aria-label="In Use"><option value="">${inUseOptions.length ? 'Select In Use' : 'No In Use Codes available'}</option>${inUseOptions.map(r => `<option value="${Number(r.LookupCodeID)}" ${existingProduct && Number(existingProduct.InUse) === Number(r.LookupCodeID) ? 'selected' : ''}>${escapeHtml(String(r.Value ?? ''))}</option>`).join('')}</select></div>` : ''}
+          ${isChangeProduct ? `<div class="form-row"><span class="form-label">In Use</span><span class="form-colon">:</span><select class="form-input" id="productInUseInput" aria-label="In Use"><option value="">${inUseOptions.length ? 'Select In Use' : 'No In Use Codes available'}</option>${inUseOptions.map(r => `<option value="${Number(r.LookupCodeID)}" ${existingProduct && (Number(existingProduct.InUse) === Number(r.LookupCodeID) || (Number(existingProduct.InUse) === 0 && String(r.ValueCode ?? '').trim() === '0')) ? 'selected' : ''}>${escapeHtml(String(r.Value ?? ''))}</option>`).join('')}</select></div>` : ''}
           <div class="form-actions"><button class="form-button save" id="productSaveButton">Save</button><button class="form-button cancel" id="productCancelButton">Cancel</button></div>
         </div>
       </section>`;
@@ -1737,7 +1749,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=58'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=59'));
   }
 </script>
 </body>
