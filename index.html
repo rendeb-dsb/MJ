@@ -91,7 +91,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v51</div>
+    <div id="version" class="version">v52</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
@@ -487,69 +487,116 @@
         displayPurchaseParentList();
       };
 
+      // When the user selects a Store and valid Date while adding a Purchase,
+      // immediately switch to the existing Purchase for that Store/Date if one
+      // exists.  This makes the screen an editing/continuation screen: the
+      // existing Products are shown, + and - are available, and Save becomes
+      // Close.  No second Purchase record is created.
+      const syncExistingPurchaseForSelection = () => {
+        if (preservePurchase) return;
+        const selectedStore = storeSelectValue();
+        const date = document.querySelector('.purchase-date')?.value.trim() || '';
+        const plus = document.getElementById('purchasePlus');
+        const minus = document.getElementById('purchaseMinus');
+        if (!selectedStore || !isValidPurchaseDate(date)) {
+          pendingPurchaseId = null;
+          pendingPurchaseStoreId = selectedStore ? Number(selectedStore) : null;
+          pendingPurchaseDate = date || null;
+          saveButton.textContent = 'Save';
+          saveButton.onclick = saveNewPurchase;
+          document.getElementById('cancelButton').style.display = '';
+          plus.disabled = true;
+          minus.style.display = 'none';
+          minus.disabled = true;
+          return;
+        }
+        const storeId = Number(selectedStore);
+        const matchingPurchases = getPurchases()
+          .filter(r => Number(r.StoreID) === storeId && String(r.PurchDate || '') === date)
+          .sort((a,b) => Number(a.PurchaseID) - Number(b.PurchaseID));
+        if (!matchingPurchases.length) {
+          pendingPurchaseId = null;
+          pendingPurchaseStoreId = storeId;
+          pendingPurchaseDate = date;
+          saveButton.textContent = 'Save';
+          saveButton.onclick = saveNewPurchase;
+          document.getElementById('cancelButton').style.display = '';
+          plus.disabled = true;
+          minus.style.display = 'none';
+          minus.disabled = true;
+          renderPurchaseProductRows();
+          return;
+        }
+
+        const firstPurchase = matchingPurchases[0];
+        pendingPurchaseStoreId = storeId;
+        pendingPurchaseDate = date;
+        pendingPurchaseId = Number(firstPurchase.PurchaseID);
+        selectedPurchaseId = pendingPurchaseId;
+        selectedProductId = null;
+        renderPurchaseProductRows();
+        plus.disabled = false;
+        const hasProducts = getProductsForPurchaseGroup(storeId, date).length > 0;
+        minus.style.display = hasProducts ? '' : 'none';
+        minus.disabled = !hasProducts;
+        document.getElementById('cancelButton').style.display = 'none';
+        saveButton.textContent = 'Close';
+        saveButton.disabled = false;
+        saveButton.onclick = closeSavedPurchase;
+      };
+
+      const saveNewPurchase = () => {
+        const selectedStore = storeSelectValue();
+        const date = document.querySelector('.purchase-date').value.trim();
+        if (!selectedStore) {
+          showMessage('Select a Store before saving.', [{label:'Close', action:()=>{}}]);
+          return;
+        }
+        if (!isValidPurchaseDate(date)) {
+          showMessage('Enter a valid date before saving.', [{label:'Close', action:()=>{}}]);
+          return;
+        }
+
+        const storeId = Number(selectedStore);
+        const matchingPurchases = getPurchases()
+          .filter(r => Number(r.StoreID) === storeId && String(r.PurchDate || '') === date)
+          .sort((a,b) => Number(a.PurchaseID) - Number(b.PurchaseID));
+
+        if (matchingPurchases.length) {
+          const firstPurchase = matchingPurchases[0];
+          pendingPurchaseStoreId = storeId;
+          pendingPurchaseDate = date;
+          pendingPurchaseId = Number(firstPurchase.PurchaseID);
+          selectedPurchaseId = pendingPurchaseId;
+        } else {
+          pendingPurchaseStoreId = storeId;
+          pendingPurchaseDate = date;
+          pendingPurchaseId = addPurchaseRecord(pendingPurchaseStoreId, pendingPurchaseDate);
+          selectedPurchaseId = pendingPurchaseId;
+        }
+
+        renderPurchaseProductRows();
+        const plus = document.getElementById('purchasePlus');
+        const minus = document.getElementById('purchaseMinus');
+        const hasProducts = getProductsForPurchaseGroup(storeId, date).length > 0;
+        plus.disabled = false;
+        minus.style.display = hasProducts ? '' : 'none';
+        minus.disabled = !hasProducts;
+        const cancelButton = document.getElementById('cancelButton');
+        cancelButton.style.display = 'none';
+        saveButton.textContent = 'Close';
+        saveButton.disabled = false;
+        saveButton.onclick = closeSavedPurchase;
+      };
+
       // If this is an already-saved Purchase, the button is a true Close
-      // button.  It must not run the Add/Save handler below.
+      // button. For a new Purchase, it remains Save until Store + Date identify
+      // an existing Purchase, at which point syncExistingPurchaseForSelection
+      // changes it to Close.
       if (preservePurchase) {
         saveButton.onclick = closeSavedPurchase;
       } else {
-        saveButton.onclick = () => {
-          const selectedStore = storeSelectValue();
-          const date = document.querySelector('.purchase-date').value.trim();
-          if (!selectedStore) {
-            showMessage('Select a Store before saving.', [{label:'Close', action:()=>{}}]);
-            return;
-          }
-          if (!isValidPurchaseDate(date)) {
-            showMessage('Enter a valid date before saving.', [{label:'Close', action:()=>{}}]);
-            return;
-          }
-
-          const storeId = Number(selectedStore);
-          const matchingPurchases = getPurchases()
-            .filter(r => Number(r.StoreID) === storeId && String(r.PurchDate || '') === date)
-            .sort((a,b) => Number(a.PurchaseID) - Number(b.PurchaseID));
-
-          if (matchingPurchases.length) {
-            // Reuse the first existing Purchase for this Store/Date rather
-            // than creating another Purchase record.  Legacy duplicate
-            // Purchase rows, if present, are left intact and their Products
-            // are all shown together below.
-            const firstPurchase = matchingPurchases[0];
-            const rows = getPurchases().map(r => ({...r}));
-            const index = rows.findIndex(r => Number(r.PurchaseID) === Number(firstPurchase.PurchaseID));
-            if (index >= 0) {
-              rows[index].StoreID = storeId;
-              rows[index].PurchDate = date;
-              savePurchases(rows);
-            }
-            pendingPurchaseStoreId = storeId;
-            pendingPurchaseDate = date;
-            pendingPurchaseId = Number(firstPurchase.PurchaseID);
-            selectedPurchaseId = pendingPurchaseId;
-          } else {
-            pendingPurchaseStoreId = storeId;
-            pendingPurchaseDate = date;
-            pendingPurchaseId = addPurchaseRecord(pendingPurchaseStoreId, pendingPurchaseDate);
-            selectedPurchaseId = pendingPurchaseId;
-          }
-
-          // The saved Purchase is now the active editing context.  Show all
-          // existing Products for this Store/Date and enable both controls.
-          renderPurchaseProductRows();
-          const plus = document.getElementById('purchasePlus');
-          const minus = document.getElementById('purchaseMinus');
-          const hasProducts = getProductsForPurchaseGroup(storeId, date).length > 0;
-          plus.disabled = false;
-          minus.style.display = hasProducts ? '' : 'none';
-          minus.disabled = !hasProducts;
-          const cancelButton = document.getElementById('cancelButton');
-          cancelButton.style.display = 'none';
-          saveButton.textContent = 'Close';
-          saveButton.disabled = false;
-          // After the Purchase has been saved, Close returns to the
-          // Purchases parent list showing Store and Purchase Date.
-          saveButton.onclick = closeSavedPurchase;
-        };
+        saveButton.onclick = saveNewPurchase;
       }
 
       const storeSelect = document.querySelector('.purchase-store');
@@ -559,6 +606,7 @@
           if (!preservePurchase) {
             selectedProductId = null;
             renderPurchaseProductRows();
+            syncExistingPurchaseForSelection();
           }
         });
       }
@@ -574,6 +622,7 @@
         if (!preservePurchase) {
           selectedProductId = null;
           renderPurchaseProductRows();
+          syncExistingPurchaseForSelection();
         }
       });
       return;
@@ -1484,7 +1533,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=51'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=52'));
   }
 </script>
 </body>
