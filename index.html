@@ -91,7 +91,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v57</div>
+    <div id="version" class="version">v58</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
@@ -105,8 +105,10 @@
         <div class="separator" role="separator"></div>
         <button role="menuitem">Import</button>
         <button role="menuitem">Export</button>
+        <div class="separator" role="separator"></div>
         <button role="menuitem" data-action="integrity">Integrity Check</button>
         <button role="menuitem" data-action="clearData">Clear Data</button>
+        <button role="menuitem" data-action="productsDump">Products Dump</button>
         <div class="separator" role="separator"></div>
         <button role="menuitem">Quit</button>
       </div>
@@ -231,9 +233,9 @@
         dataCache[cacheName] = rows;
       }
       const normalizedProducts = normalizeProductRows(dataCache.products);
-      const inUseResetKey = 'mj_v57_inuse_reset_done';
+      const inUseResetKey = 'mj_v58_inuse_reset_done';
       if (!localStorage.getItem(inUseResetKey)) {
-        // v57 requirement: every Product record that already exists is reset to 0.
+        // v58 requirement: every Product record that already exists is reset to 0.
         const resetProducts = normalizedProducts.map(r => ({...r, InUse: 0}));
         dataCache.products = resetProducts;
         await replaceIDBStore(IDB_TABLES.products.name, resetProducts);
@@ -1524,6 +1526,56 @@
     }
   }
 
+  // Read-only dump of every row in the Products table.
+  async function displayProductsDump() {
+    const returnScreen = activeScreen;
+    closeActions();
+    try {
+      let products = getProducts();
+      if (mjDB) products = await readAllFromIDB('products');
+      products = products.slice().sort((a,b) => Number(a.ProductID) - Number(b.ProductID));
+
+      const rows = products.length
+        ? products.map(r => `<tr>
+            <td>${escapeHtml(String(r.ProductID ?? ''))}</td>
+            <td>${escapeHtml(String(r.PurchaseID ?? ''))}</td>
+            <td>${escapeHtml(String(r.Product ?? ''))}</td>
+            <td>${escapeHtml(String(r.Category ?? ''))}</td>
+            <td>${escapeHtml(String(r.Cost ?? ''))}</td>
+            <td>${escapeHtml(String(r.THC ?? ''))}</td>
+            <td>${escapeHtml(String(r.CBD ?? ''))}</td>
+            <td>${escapeHtml(String(r.InUse ?? ''))}</td>
+          </tr>`).join('')
+        : `<tr><td colspan="8" style="text-align:center">No Products records found.</td></tr>`;
+
+      mainContent.innerHTML = `
+        <section class="content-card integrity-card">
+          <div class="content-heading">Products Table Dump</div>
+          <div class="integrity-summary"><div>Products: <strong>${products.length}</strong></div></div>
+          <div class="integrity-table-wrap">
+            <table>
+              <thead><tr>
+                <th>ProductID</th><th>PurchaseID</th><th>Product</th><th>Category</th>
+                <th>Cost</th><th>THC</th><th>CBD</th><th>InUse</th>
+              </tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+          <div class="integrity-footer"><button class="form-button" id="productsDumpCloseButton">Close</button></div>
+        </section>`;
+
+      document.getElementById('productsDumpCloseButton').addEventListener('click', () => {
+        activeScreen = returnScreen;
+        buttons.forEach(b => b.classList.toggle('active', b.dataset.screen === activeScreen));
+        title.textContent = `MJ - ${activeScreen}`;
+        document.title = `MJ - ${activeScreen}`;
+        displayList();
+      });
+    } catch (error) {
+      showMessage('The Products Dump could not read the database.', [{label:'Close', action:() => displayList()}]);
+    }
+  }
+
   // Delete a Store and its complete dependent hierarchy in one IndexedDB
   // transaction.  This avoids leaving orphaned Purchase rows behind if the
   // three tables are updated separately.
@@ -1644,6 +1696,8 @@
         displayIntegrityCheck();
       } else if (event.target.dataset.action === 'clearData') {
         clearOperationalData();
+      } else if (event.target.dataset.action === 'productsDump') {
+        displayProductsDump();
       }
       else if (event.target.textContent === 'Export') {
         closeActions();
@@ -1683,7 +1737,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=57'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=58'));
   }
 </script>
 </body>
