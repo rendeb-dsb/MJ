@@ -91,7 +91,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v52</div>
+    <div id="version" class="version">v53</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
@@ -372,18 +372,32 @@
 
   function displayAddForm(mode = 'add') {
     closeActions();
-    if (mode !== 'add' && activeScreen !== 'Stores') return;
+    if (mode !== 'add' && activeScreen !== 'Stores' && !(activeScreen === 'Purchases' && mode === 'change')) return;
 
     if (activeScreen === 'Purchases') {
+      const isChangePurchase = mode === 'change';
+      const changePurchaseRow = isChangePurchase
+        ? getPurchases().find(r => Number(r.PurchaseID) === Number(selectedPurchaseId))
+        : null;
+      if (isChangePurchase && !changePurchaseRow) {
+        showMessage('Please select a Purchase record before choosing Change.', [{label:'Close', action:displayList}]);
+        return;
+      }
+      const originalPurchaseId = isChangePurchase ? Number(changePurchaseRow.PurchaseID) : null;
       const today = new Date();
       const mm = String(today.getMonth() + 1).padStart(2, '0');
       const dd = String(today.getDate()).padStart(2, '0');
       const yyyy = today.getFullYear();
       const defaultDate = `${mm}/${dd}/${yyyy}`;
-      const preservePurchase = Number.isFinite(Number(pendingPurchaseId)) && Number(pendingPurchaseId) > 0;
+      const preservePurchase = isChangePurchase || (Number.isFinite(Number(pendingPurchaseId)) && Number(pendingPurchaseId) > 0);
       if (!preservePurchase && selectedPurchaseId != null && mode === 'add') selectedPurchaseId = null;
       const purchaseRow = preservePurchase ? getPurchases().find(r => Number(r.PurchaseID) === Number(pendingPurchaseId)) : null;
-      if (!preservePurchase) {
+      if (isChangePurchase) {
+        pendingPurchaseId = originalPurchaseId;
+        pendingPurchaseStoreId = Number(changePurchaseRow.StoreID);
+        pendingPurchaseDate = changePurchaseRow.PurchDate || '';
+        selectedPurchaseId = originalPurchaseId;
+      } else if (!preservePurchase) {
         pendingPurchaseStoreId = null;
         pendingPurchaseDate = null;
       } else if (purchaseRow) {
@@ -400,7 +414,7 @@
             <h2 class="form-title purchase-screen-title">Purchase</h2>
             <div class="form-row">
               <span class="form-label">Store</span><span class="form-colon">:</span>
-              <select class="form-input purchase-store" aria-label="Store" ${orderedStores.length ? '' : 'disabled'}>
+              <select class="form-input purchase-store" aria-label="Store" ${isChangePurchase || !orderedStores.length ? 'disabled' : ''}>
                 <option value="">${orderedStores.length ? 'Select Store' : 'No Stores available'}</option>
                 ${orderedStores.map(store => `<option value="${Number(store.StoreID)}" ${Number(pendingPurchaseStoreId) === Number(store.StoreID) ? 'selected' : ''}>${escapeHtml(String(store.Name ?? ''))}</option>`).join('')}
               </select>
@@ -410,8 +424,8 @@
               <input class="form-input purchase-date" type="text" inputmode="numeric" maxlength="10" aria-label="Date" value="${escapeHtml(displayDate)}">
             </div>
             <div class="purchase-adjusters">
-              <button type="button" class="small-button" id="purchasePlus" aria-label="Plus" ${preservePurchase ? '' : 'disabled'}>+</button>
-              <button type="button" class="small-button" id="purchaseMinus" aria-label="Minus" style="${preservePurchase && getProducts().some(r => Number(r.PurchaseID) === Number(pendingPurchaseId)) ? '' : 'display:none'}">-</button>
+              <button type="button" class="small-button" id="purchasePlus" aria-label="Plus" ${(preservePurchase || isChangePurchase) ? '' : 'disabled'}>+</button>
+              <button type="button" class="small-button" id="purchaseMinus" aria-label="Minus" style="${(preservePurchase || isChangePurchase) && getProductsForPurchaseGroup(pendingPurchaseStoreId, pendingPurchaseDate).length ? '' : 'display:none'}">-</button>
             </div>
             <h2 class="form-title purchase-section-title">Purchased Products</h2>
             <div class="purchase-product-list">
@@ -476,7 +490,14 @@
         displayDeleteProductForm();
       });
       document.querySelectorAll('input[name="productSelect"]').forEach(radio => radio.addEventListener('change', e => { selectedProductId = Number(e.target.value); }));
-      if (preservePurchase) { const hasProducts = getProductsForPurchaseGroup(pendingPurchaseStoreId, pendingPurchaseDate).length > 0; document.getElementById('saveButton').disabled = false; document.getElementById('saveButton').textContent = 'Close'; document.getElementById('cancelButton').style.display = 'none'; document.getElementById('purchasePlus').disabled = false; const minus = document.getElementById('purchaseMinus'); minus.style.display = hasProducts ? '' : 'none'; minus.disabled = !hasProducts; }
+      if (preservePurchase && !isChangePurchase) { const hasProducts = getProductsForPurchaseGroup(pendingPurchaseStoreId, pendingPurchaseDate).length > 0; document.getElementById('saveButton').disabled = false; document.getElementById('saveButton').textContent = 'Close'; document.getElementById('cancelButton').style.display = 'none'; document.getElementById('purchasePlus').disabled = false; const minus = document.getElementById('purchaseMinus'); minus.style.display = hasProducts ? '' : 'none'; minus.disabled = !hasProducts; }
+      if (isChangePurchase) {
+        const hasProducts = getProductsForPurchaseGroup(pendingPurchaseStoreId, pendingPurchaseDate).length > 0;
+        document.getElementById('purchasePlus').disabled = false;
+        const minus = document.getElementById('purchaseMinus');
+        minus.style.display = hasProducts ? '' : 'none';
+        minus.disabled = !hasProducts;
+      }
 
       const saveButton = document.getElementById('saveButton');
       const closeSavedPurchase = () => {
@@ -484,6 +505,53 @@
         pendingPurchaseStoreId = null;
         pendingPurchaseDate = null;
         selectedProductId = null;
+        displayPurchaseParentList();
+      };
+
+      const saveChangedPurchase = () => {
+        const date = document.querySelector('.purchase-date')?.value.trim() || '';
+        if (!isValidPurchaseDate(date)) {
+          showMessage('Enter a valid date before saving.', [{label:'Close', action:()=>{}}]);
+          return;
+        }
+        const storeId = Number(pendingPurchaseStoreId);
+        const matches = getPurchases()
+          .filter(r => Number(r.StoreID) === storeId && String(r.PurchDate || '') === date)
+          .sort((a,b) => Number(a.PurchaseID) - Number(b.PurchaseID));
+        const currentId = Number(pendingPurchaseId);
+        const otherMatches = matches.filter(r => Number(r.PurchaseID) !== currentId);
+        if (otherMatches.length) {
+          showMessage(`A Purchase record already exists for this store on this Date.<br><br>Do you want to affect the existing Purchase record by adding more purchased Products or Cancel this Change?`, [
+            {label:'Yes', action:() => {
+              const first = otherMatches[0];
+              pendingPurchaseId = Number(first.PurchaseID);
+              pendingPurchaseStoreId = storeId;
+              pendingPurchaseDate = String(first.PurchDate || date);
+              selectedPurchaseId = pendingPurchaseId;
+              selectedProductId = null;
+              renderPurchaseProductRows();
+              const plus = document.getElementById('purchasePlus');
+              const minus = document.getElementById('purchaseMinus');
+              plus.disabled = false;
+              const hasProducts = getProductsForPurchaseGroup(storeId, pendingPurchaseDate).length > 0;
+              minus.style.display = hasProducts ? '' : 'none';
+              minus.disabled = !hasProducts;
+              document.getElementById('purchase-date').value = pendingPurchaseDate;
+            }},
+            {label:'Cancel', action:() => {
+              pendingPurchaseId = null; pendingPurchaseStoreId = null; pendingPurchaseDate = null; selectedProductId = null;
+              displayPurchaseParentList();
+            }}
+          ]);
+          return;
+        }
+        const rows = getPurchases().map(r => ({...r}));
+        const idx = rows.findIndex(r => Number(r.PurchaseID) === currentId);
+        if (idx < 0) { showMessage('The selected Purchase record could not be found.', [{label:'Close', action:displayPurchaseParentList}]); return; }
+        rows[idx].PurchDate = date;
+        savePurchases(rows);
+        pendingPurchaseDate = date;
+        selectedPurchaseId = currentId;
         displayPurchaseParentList();
       };
 
@@ -593,7 +661,9 @@
       // button. For a new Purchase, it remains Save until Store + Date identify
       // an existing Purchase, at which point syncExistingPurchaseForSelection
       // changes it to Close.
-      if (preservePurchase) {
+      if (isChangePurchase) {
+        saveButton.onclick = saveChangedPurchase;
+      } else if (preservePurchase) {
         saveButton.onclick = closeSavedPurchase;
       } else {
         saveButton.onclick = saveNewPurchase;
@@ -603,7 +673,7 @@
       if (storeSelect) {
         storeSelect.addEventListener('change', () => {
           pendingPurchaseStoreId = storeSelect.value ? Number(storeSelect.value) : null;
-          if (!preservePurchase) {
+          if (!preservePurchase && !isChangePurchase) {
             selectedProductId = null;
             renderPurchaseProductRows();
             syncExistingPurchaseForSelection();
@@ -619,7 +689,45 @@
         if (digits.length > 2) out += '/' + digits.slice(2, 4);
         if (digits.length > 4) out += '/' + digits.slice(4, 8);
         dateInput.value = out;
-        if (!preservePurchase) {
+        if (isChangePurchase) {
+          if (isValidPurchaseDate(dateInput.value.trim()) && dateInput.value.trim() !== String(changePurchaseRow.PurchDate || '')) {
+            const newDate = dateInput.value.trim();
+            const storeId = Number(pendingPurchaseStoreId);
+            const matches = getPurchases().filter(r => Number(r.StoreID) === storeId && String(r.PurchDate || '') === newDate && Number(r.PurchaseID) !== Number(pendingPurchaseId));
+            if (matches.length) {
+              showMessage(`A Purchase record already exists for this store on this Date.<br><br>Do you want to affect the existing Purchase record by adding more purchased Products or Cancel this Change?`, [
+                {label:'Yes', action:() => {
+                  const first = matches.sort((a,b)=>Number(a.PurchaseID)-Number(b.PurchaseID))[0];
+                  pendingPurchaseId = Number(first.PurchaseID);
+                  pendingPurchaseDate = String(first.PurchDate || newDate);
+                  selectedPurchaseId = pendingPurchaseId;
+                  selectedProductId = null;
+                  dateInput.value = pendingPurchaseDate;
+                  renderPurchaseProductRows();
+                  const plus = document.getElementById('purchasePlus');
+                  const minus = document.getElementById('purchaseMinus');
+                  plus.disabled = false;
+                  const hasProducts = getProductsForPurchaseGroup(storeId, pendingPurchaseDate).length > 0;
+                  minus.style.display = hasProducts ? '' : 'none';
+                  minus.disabled = !hasProducts;
+                }},
+                {label:'Cancel', action:() => {
+                  pendingPurchaseId = null; pendingPurchaseStoreId = null; pendingPurchaseDate = null; selectedProductId = null;
+                  displayPurchaseParentList();
+                }}
+              ]);
+              return;
+            }
+          }
+          pendingPurchaseDate = dateInput.value.trim();
+          selectedProductId = null;
+          renderPurchaseProductRows();
+          const hasProducts = getProductsForPurchaseGroup(Number(pendingPurchaseStoreId), pendingPurchaseDate).length > 0;
+          document.getElementById('purchasePlus').disabled = false;
+          const minus = document.getElementById('purchaseMinus');
+          minus.style.display = hasProducts ? '' : 'none';
+          minus.disabled = !hasProducts;
+        } else if (!preservePurchase) {
           selectedProductId = null;
           renderPurchaseProductRows();
           syncExistingPurchaseForSelection();
@@ -1484,7 +1592,12 @@
     event.stopPropagation();
     if (event.target.matches('button')) {
       if (event.target.dataset.action === 'add') { pendingPurchaseId = null; pendingPurchaseStoreId = null; pendingPurchaseDate = null; selectedProductId = null; displayAddForm('add'); }
-      else if (event.target.dataset.action === 'change') displayAddForm('change');
+      else if (event.target.dataset.action === 'change') {
+        if (activeScreen === 'Purchases') {
+          if (selectedPurchaseId == null) showMessage('Please select a Purchase record before choosing Change.', [{label:'Close', action:()=>{}}]);
+          else { pendingPurchaseId = Number(selectedPurchaseId); selectedProductId = null; displayAddForm('change'); }
+        } else displayAddForm('change');
+      }
       else if (event.target.dataset.action === 'delete') {
         if (activeScreen === 'Purchases') displayDeletePurchaseForm();
         else if (activeScreen === 'Stores') deleteSelectedStore();
@@ -1533,7 +1646,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=52'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=53'));
   }
 </script>
 </body>
