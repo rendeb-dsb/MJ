@@ -91,7 +91,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v55</div>
+    <div id="version" class="version">v56</div>
     <div id="screenTitle" class="screen-title">MJ - Stores</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
@@ -146,7 +146,7 @@
   // Versioned persistence: IndexedDB is authoritative. Existing localStorage
   // data is migrated automatically on first run and retained as a backup.
   const DB_NAME = 'MJDB';
-  const DB_VERSION = 2;
+  const DB_VERSION = 3;
   const IDB_TABLES = {
     stores:    {name:'stores', key:'StoreID', localKey:STORAGE_KEY},
     purchases: {name:'purchases', key:'PurchaseID', localKey:PURCHASES_KEY},
@@ -330,7 +330,7 @@
         const pid = Number(r.PurchaseID);
         const rows = products.filter(pr => Number(pr.PurchaseID) === pid).sort((a,b) => Number(a.ProductID) - Number(b.ProductID));
         const productTable = rows.length
-          ? `<table style="width:100%;border-collapse:collapse;table-layout:fixed"><colgroup><col style="width:27%"><col style="width:31%"><col style="width:10%"><col style="width:12%"><col style="width:20%"></colgroup><thead><tr><th style="text-align:left;padding:7px 8px;font-weight:700">Category</th><th style="text-align:left;padding:7px 8px;font-weight:700">Product</th><th style="text-align:left;padding:7px 8px;font-weight:700">Cost</th><th style="text-align:left;padding:7px 8px;font-weight:700">THC</th><th style="padding:7px 8px;font-weight:700"></th></tr></thead><tbody>` + rows.map(pr => `<tr><td style="padding:6px 8px;vertical-align:top">${escapeHtml(String(categoryName(pr.Category) ?? ''))}</td><td style="padding:6px 8px;vertical-align:top">${escapeHtml(String(pr.Product ?? ''))}</td><td style="padding:6px 8px;vertical-align:top">${formatCurrency(pr.Cost)}</td><td style="padding:6px 8px;vertical-align:top">${pr.THC == null || pr.THC === '' ? '' : `${Number(pr.THC).toFixed(2)}%`}</td><td style="padding:6px 8px;vertical-align:top"></td></tr>`).join('') + `</tbody></table>`
+          ? `<table style="width:100%;border-collapse:collapse;table-layout:fixed"><colgroup><col style="width:23%"><col style="width:27%"><col style="width:10%"><col style="width:20%"><col style="width:20%"></colgroup><thead><tr><th style="text-align:left;padding:7px 8px;font-weight:700">Category</th><th style="text-align:left;padding:7px 8px;font-weight:700">Product</th><th style="text-align:left;padding:7px 8px;font-weight:700">Cost</th><th style="text-align:left;padding:7px 8px;font-weight:700">In Use</th><th style="text-align:left;padding:7px 8px;font-weight:700">THC</th></tr></thead><tbody>` + rows.map(pr => `<tr><td style="padding:6px 8px;vertical-align:top">${escapeHtml(String(categoryName(pr.Category) ?? ''))}</td><td style="padding:6px 8px;vertical-align:top">${escapeHtml(String(pr.Product ?? ''))}</td><td style="padding:6px 8px;vertical-align:top">${formatCurrency(pr.Cost)}</td><td style="padding:6px 8px;vertical-align:top">${escapeHtml(String(inUseName(pr.InUse) ?? ''))}</td><td style="padding:6px 8px;vertical-align:top">${pr.THC == null || pr.THC === '' ? '' : `${Number(pr.THC).toFixed(2)}%`}</td></tr>`).join('') + `</tbody></table>`
           : '';
         return `<tr><td style="padding:10px;border-bottom:0;text-align:center;vertical-align:top"><input type="radio" name="purchaseSelect" value="${pid}" ${Number(selectedPurchaseId) === pid ? 'checked' : ''} aria-label="Select purchase"></td><td style="padding:10px;border-bottom:0;vertical-align:top">${escapeHtml(String(r.PurchDate ?? ''))}</td><td style="padding:10px;border-bottom:0;vertical-align:top">${escapeHtml(String(store?.Name ?? ''))}</td><td style="padding:10px;border-bottom:0"></td><td style="padding:10px;border-bottom:0"></td><td style="padding:10px;border-bottom:0"></td></tr><tr><td style="padding:0;border-bottom:1px solid #e5e7eb"></td><td colspan="5" style="padding:0 8px 10px 0;border-bottom:1px solid #e5e7eb;vertical-align:top">${productTable}</td></tr>`;
       }).join('') + '</tbody></table></div>';
@@ -861,6 +861,17 @@
       .sort((a,b) => Number(a.Order) - Number(b.Order) || Number(a.LookupCodeID) - Number(b.LookupCodeID));
   }
 
+  function getInUseOptions() {
+    return getLookupCodes()
+      .filter(r => String(r.GroupCode ?? '').toUpperCase().includes('IU'))
+      .sort((a,b) => Number(a.Order) - Number(b.Order) || Number(a.LookupCodeID) - Number(b.LookupCodeID));
+  }
+
+  function inUseName(value) {
+    const code = getLookupCodes().find(c => Number(c.LookupCodeID) === Number(value));
+    return code?.Value ?? code?.ValueCode ?? '';
+  }
+
   function normalizeProductRows(rows) {
     return rows.map(r => {
       const out = {
@@ -870,7 +881,8 @@
         Cost: Number.isFinite(Number(r.Cost)) ? Number(r.Cost) : null,
         THC: (r.THC === '' || r.THC == null) ? null : Number(r.THC),
         CBD: (r.CBD === '' || r.CBD == null) ? null : Number(r.CBD),
-        Category: r.Category ?? r.CategoryID ?? null
+        Category: r.Category ?? r.CategoryID ?? null,
+        InUse: Number.isFinite(Number(r.InUse)) ? Number(r.InUse) : 0
       };
       return out;
     });
@@ -899,23 +911,28 @@
     return Number.isFinite(n) && n >= 0 && n <= 100 ? Math.round(n * 100) / 100 : NaN;
   }
 
-  function displayAddProductForm() {
+  function displayAddProductForm(mode = 'add') {
     closeActions();
+    const isChangeProduct = mode === 'change';
+    const existingProduct = isChangeProduct ? getProducts().find(r => Number(r.ProductID) === Number(selectedProductId)) : null;
+    if (isChangeProduct && !existingProduct) { showMessage('Select a Purchased Product before choosing Change.', [{label:'Close', action:()=>{}}]); return; }
     const categories = getCategoryOptions();
+    const inUseOptions = getInUseOptions();
     mainContent.innerHTML = `
       <section class="content-card">
         <div class="form-area">
-          <h2 class="form-title">Add Product Purchased</h2>
-          <div class="form-row"><span class="form-label">Product</span><span class="form-colon">:</span><input class="form-input" id="productNameInput" type="text" aria-label="Product"></div>
-          <div class="form-row"><span class="form-label">Cost</span><span class="form-colon">:</span><input class="form-input currency-input" id="productCostInput" type="text" inputmode="decimal" aria-label="Cost" placeholder="$0.00"></div>
+          <h2 class="form-title">${isChangeProduct ? 'Change Product Purchased' : 'Add Product Purchased'}</h2>
+          <div class="form-row"><span class="form-label">Product</span><span class="form-colon">:</span><input class="form-input" id="productNameInput" type="text" aria-label="Product" value="${escapeHtml(String(existingProduct?.Product ?? ''))}"></div>
+          <div class="form-row"><span class="form-label">Cost</span><span class="form-colon">:</span><input class="form-input currency-input" id="productCostInput" type="text" inputmode="decimal" aria-label="Cost" placeholder="$0.00" value="${existingProduct ? escapeHtml(formatCurrency(existingProduct.Cost)) : ''}"></div>
           <div class="form-row"><span class="form-label">Category</span><span class="form-colon">:</span><select class="form-input" id="productCategoryInput" aria-label="Category">
             <option value="">${categories.length ? 'Select Category' : 'No Categories available'}</option>
-            ${categories.map(r => `<option value="${Number(r.LookupCodeID)}">${escapeHtml(String(r.Value ?? ''))}</option>`).join('')}
+            ${categories.map(r => `<option value="${Number(r.LookupCodeID)}" ${existingProduct && Number(existingProduct.Category) === Number(r.LookupCodeID) ? 'selected' : ''}>${escapeHtml(String(r.Value ?? ''))}</option>`).join('')}
           </select></div>
           <div class="percentage-row">
-            <div class="percentage-field"><span class="form-label">% THC</span><span class="form-colon">:</span><input class="percentage-input" id="productThcInput" type="text" inputmode="decimal" maxlength="6" aria-label="% THC"></div>
-            <div class="percentage-field"><span class="form-label">% CBD</span><span class="form-colon">:</span><input class="percentage-input" id="productCbdInput" type="text" inputmode="decimal" maxlength="6" aria-label="% CBD"></div>
+            <div class="percentage-field"><span class="form-label">% THC</span><span class="form-colon">:</span><input class="percentage-input" id="productThcInput" type="text" inputmode="decimal" maxlength="6" aria-label="% THC" value="${existingProduct?.THC == null ? '' : escapeHtml(String(existingProduct.THC))}"></div>
+            <div class="percentage-field"><span class="form-label">% CBD</span><span class="form-colon">:</span><input class="percentage-input" id="productCbdInput" type="text" inputmode="decimal" maxlength="6" aria-label="% CBD" value="${existingProduct?.CBD == null ? '' : escapeHtml(String(existingProduct.CBD))}"></div>
           </div>
+          ${isChangeProduct ? `<div class="form-row"><span class="form-label">In Use</span><span class="form-colon">:</span><select class="form-input" id="productInUseInput" aria-label="In Use"><option value="">${inUseOptions.length ? 'Select In Use' : 'No In Use Codes available'}</option>${inUseOptions.map(r => `<option value="${Number(r.LookupCodeID)}" ${existingProduct && Number(existingProduct.InUse) === Number(r.LookupCodeID) ? 'selected' : ''}>${escapeHtml(String(r.Value ?? ''))}</option>`).join('')}</select></div>` : ''}
           <div class="form-actions"><button class="form-button save" id="productSaveButton">Save</button><button class="form-button cancel" id="productCancelButton">Cancel</button></div>
         </div>
       </section>`;
@@ -948,9 +965,20 @@
       if (Number.isNaN(cbdValue)) { showMessage('% CBD must be a number from 0 to 100.00.'); return; }
       if (!categoryValue) { showMessage('Category is required.'); return; }
       const rows=getProducts().slice();
-      const nextId=rows.reduce((m,r)=>Math.max(m,Number(r.ProductID)||0),0)+1;
       if (pendingPurchaseId == null) { showMessage('Save the Purchase before adding a Product.', [{label:'Close', action:()=>{}}]); return; }
-      rows.push({ProductID:nextId, PurchaseID:Number(pendingPurchaseId), Product:product, Cost:costValue, THC:thcValue, CBD:cbdValue, Category:Number(categoryValue)});
+      if (isChangeProduct) {
+        const inUseValue = document.getElementById('productInUseInput')?.value;
+        if (!inUseValue) { showMessage('In Use is required.'); return; }
+        const index = rows.findIndex(r => Number(r.ProductID) === Number(existingProduct.ProductID));
+        if (index < 0) { showMessage('The selected Purchased Product could not be found.', [{label:'Close', action:()=>displayAddForm('add')}]); return; }
+        rows[index] = {...rows[index], Product:product, Cost:costValue, THC:thcValue, CBD:cbdValue, Category:Number(categoryValue), InUse:Number(inUseValue)};
+        saveProducts(rows);
+        selectedProductId = Number(existingProduct.ProductID);
+        displayAddForm('change');
+        return;
+      }
+      const nextId=rows.reduce((m,r)=>Math.max(m,Number(r.ProductID)||0),0)+1;
+      rows.push({ProductID:nextId, PurchaseID:Number(pendingPurchaseId), Product:product, Cost:costValue, THC:thcValue, CBD:cbdValue, Category:Number(categoryValue), InUse:0});
       saveProducts(rows);
       selectedProductId = nextId;
       displayAddForm('add');
@@ -1594,7 +1622,8 @@
       if (event.target.dataset.action === 'add') { pendingPurchaseId = null; pendingPurchaseStoreId = null; pendingPurchaseDate = null; selectedProductId = null; displayAddForm('add'); }
       else if (event.target.dataset.action === 'change') {
         if (activeScreen === 'Purchases') {
-          if (selectedPurchaseId == null) showMessage('Please select a Purchase record before choosing Change.', [{label:'Close', action:()=>{}}]);
+          if (pendingPurchaseId != null && selectedProductId != null) displayAddProductForm('change');
+          else if (selectedPurchaseId == null) showMessage('Please select a Purchase record before choosing Change.', [{label:'Close', action:()=>{}}]);
           else { pendingPurchaseId = Number(selectedPurchaseId); selectedProductId = null; displayAddForm('change'); }
         } else displayAddForm('change');
       }
@@ -1646,7 +1675,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=55'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=56'));
   }
 </script>
 </body>
