@@ -76,7 +76,10 @@
   @media (min-width:600px) { .screen-title { font-size:32px; } .version { font-size:11px; } }
 
 
-    .usage-elapsed { min-height:26px; display:none; align-items:center; justify-content:center; background:var(--header-bg); color:white; font-size:14px; font-weight:400; padding:3px 8px 5px; border-top:1px solid rgba(255,255,255,.08); }
+    .usage-elapsed { display:none !important; }
+    .usage-status-row { display:flex; justify-content:space-between; align-items:center; gap:12px; margin:4px 0 12px; font-size:14px; line-height:1.2; }
+    .usage-status-left { text-align:left; }
+    .usage-status-right { text-align:right; white-space:nowrap; }
     .usage-product-info { font-size:16px; font-weight:700; padding:10px 0 14px; }
     .usage-area-title { margin:14px 0 8px; font-size:18px; font-weight:700; }
     .usage-list { border:1px solid var(--border); border-radius:6px; overflow:hidden; }
@@ -108,7 +111,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v68</div>
+    <div id="version" class="version">v69</div>
     <div id="screenTitle" class="screen-title">MJ - Usage</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
@@ -480,6 +483,11 @@
     }
   }
 
+  function getUsageStats(rows) {
+    const dates = new Set(rows.map(r => String(r.Date || '').trim()).filter(Boolean));
+    return { days: dates.size, hits: rows.length };
+  }
+
   function displayUsageScreen(prepareSelection = false) {
     closeActions();
     refreshUsageElapsedMessage();
@@ -488,12 +496,14 @@
     if (selectedUsageProductId != null && !available.some(p => Number(p.ProductID) === Number(selectedUsageProductId))) selectedUsageProductId = null;
     const selected = available.find(p => Number(p.ProductID) === Number(selectedUsageProductId));
     const usageRows = selected ? usageSort(getUsageRows().filter(u => Number(u.ProductID) === Number(selected.ProductID))) : [];
+    const usageStats = getUsageStats(usageRows);
+    const usageStatus = `<div class="usage-status-row"><span class="usage-status-left">Time since last usage: ${escapeHtml(getTimeSinceLastUsage())}</span><span class="usage-status-right">Days: ${String(usageStats.days).padStart(3,'0')}; Hits: ${String(usageStats.hits).padStart(3,'0')}</span></div>`;
     const productRows = available.length ? available.map(p => {
       const info = getUsageProductInfo(p.ProductID);
       return `<tr><td style="width:42px;padding:8px;border-bottom:1px solid #e5e7eb;text-align:center"><input type="radio" name="availableProductSelect" value="${Number(p.ProductID)}" ${Number(selectedUsageProductId)===Number(p.ProductID)?'checked':''} aria-label="Select product for usage"></td><td style="padding:8px;border-bottom:1px solid #e5e7eb">${escapeHtml(String(info?.storeName ?? ''))} --> ${escapeHtml(String(info?.productName ?? ''))} --> ${escapeHtml(String(info?.thc ?? ''))}</td></tr>`;
     }).join('') : `<tr><td class="usage-empty">No Products are currently In Use.</td></tr>`;
     const usageBody = selected ? (usageRows.length ? `<table><thead><tr><th style="width:42px"></th><th>Date</th><th>Time</th></tr></thead><tbody>${usageRows.map(u => `<tr><td style="text-align:center"><input type="radio" name="usageRecordSelect" value="${Number(u.UsageID)}" ${Number(selectedUsageId)===Number(u.UsageID)?'checked':''} aria-label="Select usage record"></td><td>${escapeHtml(String(u.Date ?? ''))}</td><td>${escapeHtml(String(u.Time ?? ''))}</td></tr>`).join('')}</tbody></table>` : `<div class="usage-empty">No Usage records for this Product.</div>`) : `<div class="usage-empty">Select a Product above to display its Usage records.</div>`;
-    mainContent.innerHTML = `<section class="content-card"><div class="form-area"><h2 class="form-title">Usage</h2><div class="usage-area-title">Products In Use</div><div class="usage-list"><table><tbody>${productRows}</tbody></table></div><div class="usage-area-title">Usage</div><div class="usage-list">${usageBody}</div></div></section>`;
+    mainContent.innerHTML = `<section class="content-card"><div class="form-area"><h2 class="form-title">Usage</h2>${usageStatus}<div class="usage-area-title">Products In Use</div><div class="usage-list"><table><tbody>${productRows}</tbody></table></div><div class="usage-area-title">Usage</div><div class="usage-list">${usageBody}</div></div></section>`;
     document.querySelectorAll('input[name="availableProductSelect"]').forEach(r => r.addEventListener('change', e => { selectedUsageProductId = Number(e.target.value); selectedUsageId = null; displayUsageScreen(); }));
     document.querySelectorAll('input[name="usageRecordSelect"]').forEach(r => r.addEventListener('change', e => { selectedUsageId = Number(e.target.value); }));
   }
@@ -1981,7 +1991,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=68'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=69'));
   }
 </script>
 </body>
