@@ -88,8 +88,8 @@
     .usage-datetime-group { display:flex; align-items:center; min-width:0; }
     .usage-datetime-group .form-label { font-size:16px; }
     .usage-datetime-group .form-colon { margin-left:4px; margin-right:8px; }
-    .usage-date-control { flex:0 0 50%; width:50%; max-width:260px; }
-    .usage-time-control { flex:0 0 33.333%; width:33.333%; max-width:180px; }
+    .usage-date-control { flex:0 0 60%; width:60%; max-width:312px; }
+    .usage-time-control { flex:0 0 40%; width:40%; max-width:216px; }
 
     .integrity-card { max-width: 900px; }
     .integrity-summary { display:flex; flex-wrap:wrap; gap:18px; padding:14px 0; font-size:16px; }
@@ -107,7 +107,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v65</div>
+    <div id="version" class="version">v66</div>
     <div id="screenTitle" class="screen-title">MJ - Usage</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
@@ -338,7 +338,7 @@
     const purchases = activeScreen === 'Purchases' ? getPurchases() : [];
     let body = '';
     if (activeScreen === 'Usage') {
-      displayUsageScreen();
+      displayUsageScreen(true);
       return;
     }
     if (activeScreen === 'Stores' && stores.length) {
@@ -431,9 +431,26 @@
       return parse(bp) - parse(ap) || Number(b.UsageID)-Number(a.UsageID);
     });
   }
-  function displayUsageScreen() {
+  function prepareUsageScreenSelection(available) {
+    // When the Usage screen is entered/prepared, select the Product belonging
+    // to the newest Usage record (Date, then Time).  This preparation is kept
+    // separate from ordinary redraws so selecting another Product remains possible.
+    const newest = usageSort(getUsageRows().slice())[0];
+    if (newest) {
+      const productId = Number(newest.ProductID);
+      const matching = available.find(p => Number(p.ProductID) === productId);
+      selectedUsageProductId = matching ? productId : null;
+      selectedUsageId = null;
+    } else if (selectedUsageProductId != null && !available.some(p => Number(p.ProductID) === Number(selectedUsageProductId))) {
+      selectedUsageProductId = null;
+      selectedUsageId = null;
+    }
+  }
+
+  function displayUsageScreen(prepareSelection = false) {
     closeActions();
     const available = getAvailableProducts();
+    if (prepareSelection) prepareUsageScreenSelection(available);
     if (selectedUsageProductId != null && !available.some(p => Number(p.ProductID) === Number(selectedUsageProductId))) selectedUsageProductId = null;
     const selected = available.find(p => Number(p.ProductID) === Number(selectedUsageProductId));
     const usageRows = selected ? usageSort(getUsageRows().filter(u => Number(u.ProductID) === Number(selected.ProductID))) : [];
@@ -1929,7 +1946,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=65'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=66'));
   }
 </script>
 </body>
