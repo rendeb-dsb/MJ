@@ -1,4 +1,4 @@
-const CACHE = 'mj-pwa-v84';
+const CACHE = 'mj-pwa-v85';
 const ASSETS = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', event => {
