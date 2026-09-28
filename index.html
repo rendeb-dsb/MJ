@@ -112,7 +112,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v83</div>
+    <div id="version" class="version">v84</div>
     <div id="screenTitle" class="screen-title">MJ - Usage</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
@@ -456,14 +456,21 @@
     const store = purchase ? getStores().find(x => Number(x.StoreID) === Number(purchase.StoreID)) : null;
     return { product, purchase, store, storeName: store?.Name ?? '', productName: product.Product ?? '', thc: product.THC == null || product.THC === '' ? '' : `${Number(product.THC).toFixed(2)}%` };
   }
-  function getAvailableInUseKey() {
-    // Usage screen requirement: Products In Use includes only Products whose
-    // stored InUse code is exactly 1.
-    return 1;
+  function getInUseStatusName(value) {
+    const code = getLookupCodes().find(r =>
+      String(r.GroupCode ?? '').trim().toUpperCase() === 'IU' &&
+      Number(r.LookupCodeID) === Number(value)
+    );
+    return String(code?.Value ?? '').trim();
   }
   function getAvailableProducts() {
-    const key = getAvailableInUseKey();
-    return getProducts().filter(p => Number(p.InUse) === key).sort((a,b) => Number(a.ProductID) - Number(b.ProductID));
+    // The Usage screen's Products In Use list is driven by the IU lookup
+    // meaning, not by a hard-coded primary-key number.  This keeps the list
+    // correct even when the SystemLookupCodes primary keys are not 1-based
+    // in the way originally assumed.
+    return getProducts()
+      .filter(p => getInUseStatusName(p.InUse).toLowerCase() === 'using')
+      .sort((a,b) => Number(a.ProductID) - Number(b.ProductID));
   }
   function usageSort(rows) {
     return rows.slice().sort((a,b) => {
@@ -684,7 +691,7 @@
             <div class="purchase-adjusters">
               <button type="button" class="small-button" id="purchasePlus" aria-label="Plus" ${(preservePurchase || isChangePurchase) ? '' : 'disabled'}>+</button>
               <button type="button" class="small-button" id="purchaseMinus" aria-label="Minus" style="${(preservePurchase || isChangePurchase) && getProductsForPurchaseGroup(pendingPurchaseStoreId, pendingPurchaseDate).length ? '' : 'display:none'}">-</button>
-              <button type="button" class="small-button" id="purchaseChangeProduct" aria-label="Change selected purchased product" style="${(preservePurchase || isChangePurchase) && getProductsForPurchaseGroup(pendingPurchaseStoreId, pendingPurchaseDate).length ? '' : 'display:none'}">*</button>
+              <button type="button" class="small-button" id="purchaseChangeProduct" aria-label="Change selected purchased product" style="${(preservePurchase || isChangePurchase) && getProductsForPurchaseGroup(pendingPurchaseStoreId, pendingPurchaseDate).length ? '' : 'display:none'}">•</button>
             </div>
             <h2 class="form-title purchase-section-title">Purchased Products</h2>
             <div class="purchase-product-list">
