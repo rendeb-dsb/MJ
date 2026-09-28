@@ -112,7 +112,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v74</div>
+    <div id="version" class="version">v75</div>
     <div id="screenTitle" class="screen-title">MJ - Usage</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
@@ -372,7 +372,7 @@
         const pid = Number(r.PurchaseID);
         const rows = products.filter(pr => Number(pr.PurchaseID) === pid).sort((a,b) => Number(a.ProductID) - Number(b.ProductID));
         const productTable = rows.length
-          ? `<table style="width:100%;border-collapse:collapse;table-layout:fixed"><colgroup><col style="width:20%"><col style="width:12%"><col style="width:10%"><col style="width:4.5%"><col style="width:14%"><col style="width:18%"><col style="width:21.5%"></colgroup><thead><tr><th style="text-align:left;padding:7px 8px;font-weight:700">Category</th><th style="text-align:left;padding:7px 8px;font-weight:700">Product</th><th style="text-align:left;padding:7px 8px;font-weight:700">In Use</th><th style="text-align:left;padding:7px 8px;font-weight:700">Cost</th><th style="text-align:left;padding:7px 8px;font-weight:700">THC</th><th style="text-align:left;padding:7px 8px;font-weight:700">CBD</th><th style="text-align:left;padding:7px 8px;font-weight:700">Weight</th></tr></thead><tbody>` + rows.map(pr => `<tr><td style="padding:6px 8px;vertical-align:top">${escapeHtml(String(categoryName(pr.Category) ?? ''))}</td><td style="padding:6px 8px;vertical-align:top">${escapeHtml(String(pr.Product ?? ''))}</td><td style="padding:6px 8px;vertical-align:top">${escapeHtml(String(inUseName(pr.InUse) ?? ''))}</td><td style="padding:6px 8px;vertical-align:top">${formatCurrency(pr.Cost)}</td><td style="padding:6px 8px;vertical-align:top">${pr.THC == null || pr.THC === '' ? '' : `${Number(pr.THC).toFixed(2)}%`}</td><td style="padding:6px 8px;vertical-align:top">${pr.CBD == null || pr.CBD === '' ? '' : `${Number(pr.CBD).toFixed(2)}%`}</td><td style="padding:6px 8px;vertical-align:top">${pr.Weight == null || pr.Weight === '' ? '' : Number(pr.Weight).toFixed(2)}</td></tr>`).join('') + `</tbody></table>`
+          ? `<table style="width:100%;border-collapse:collapse;table-layout:fixed"><colgroup><col style="width:20%"><col style="width:12%"><col style="width:10%"><col style="width:4.5%"><col style="width:14%"><col style="width:18%"><col style="width:21.5%"></colgroup><thead><tr><th style="text-align:left;padding:7px 8px;font-weight:700">Category</th><th style="text-align:left;padding:7px 8px;font-weight:700">Product</th><th style="text-align:left;padding:7px 8px;font-weight:700">In Use</th><th style="text-align:left;padding:7px 8px;font-weight:700">Cost</th><th style="text-align:left;padding:7px 8px;font-weight:700;position:relative;left:25px">THC</th><th style="text-align:left;padding:7px 8px;font-weight:700">CBD</th><th style="text-align:left;padding:7px 8px;font-weight:700;position:relative;left:-25px">Weight</th></tr></thead><tbody>` + rows.map(pr => `<tr><td style="padding:6px 8px;vertical-align:top">${escapeHtml(String(categoryName(pr.Category) ?? ''))}</td><td style="padding:6px 8px;vertical-align:top">${escapeHtml(String(pr.Product ?? ''))}</td><td style="padding:6px 8px;vertical-align:top">${escapeHtml(String(inUseName(pr.InUse) ?? ''))}</td><td style="padding:6px 8px;vertical-align:top">${formatCurrency(pr.Cost)}</td><td style="padding:6px 8px;vertical-align:top;position:relative;left:25px">${pr.THC == null || pr.THC === '' ? '' : `${Number(pr.THC).toFixed(2)}%`}</td><td style="padding:6px 8px;vertical-align:top">${pr.CBD == null || pr.CBD === '' ? '' : `${Number(pr.CBD).toFixed(2)}%`}</td><td style="padding:6px 8px;vertical-align:top;position:relative;left:-25px">${pr.Weight == null || pr.Weight === '' ? '' : Number(pr.Weight).toFixed(2)}</td></tr>`).join('') + `</tbody></table>`
           : '';
         return `<tr><td style="padding:10px;border-bottom:0;text-align:center;vertical-align:top"><input type="radio" name="purchaseSelect" value="${pid}" ${Number(selectedPurchaseId) === pid ? 'checked' : ''} aria-label="Select purchase"></td><td style="padding:10px;border-bottom:0;vertical-align:top">${escapeHtml(String(r.PurchDate ?? ''))}</td><td style="padding:10px;border-bottom:0;vertical-align:top">${escapeHtml(String(store?.Name ?? ''))}</td><td style="padding:10px;border-bottom:0"></td><td style="padding:10px;border-bottom:0"></td><td style="padding:10px;border-bottom:0"></td></tr><tr><td style="padding:0;border-bottom:1px solid #e5e7eb"></td><td colspan="5" style="padding:0 8px 10px 0;border-bottom:1px solid #e5e7eb;vertical-align:top">${productTable}</td></tr>`;
       }).join('') + '</tbody></table></div>';
@@ -2175,7 +2175,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=74'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=75'));
   }
 </script>
 </body>
