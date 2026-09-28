@@ -112,7 +112,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v70</div>
+    <div id="version" class="version">v71</div>
     <div id="screenTitle" class="screen-title">MJ - Usage</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
@@ -131,6 +131,8 @@
         <button role="menuitem" data-action="integrity">Integrity Check</button>
         <button role="menuitem" data-action="clearData">Clear Data</button>
         <button role="menuitem" data-action="productsDump">Products Dump</button>
+        <button role="menuitem" data-action="backupDatabase">Backup Database</button>
+        <button role="menuitem" data-action="restoreDatabase">Restore Database</button>
         <div class="separator" role="separator"></div>
         <button role="menuitem">Quit</button>
       </div>
@@ -1819,6 +1821,153 @@
     }
   }
 
+  // Complete database backup/restore. The backup preserves all five IndexedDB
+  // object stores, including primary and foreign-key values. Restore validates
+  // the entire file before replacing anything and then performs the replacement
+  // in one IndexedDB transaction so a failed restore leaves the existing data intact.
+  const BACKUP_FORMAT = 'MJ_DATABASE_BACKUP';
+  const BACKUP_VERSION = 1;
+
+  async function getAuthoritativeTables() {
+    const result = {};
+    for (const [cacheName, table] of Object.entries(IDB_TABLES)) {
+      result[cacheName] = mjDB ? await readAllFromIDB(table.name) : (dataCache[cacheName] || []).slice();
+    }
+    return result;
+  }
+
+  async function backupDatabase() {
+    closeActions();
+    try {
+      const tables = await getAuthoritativeTables();
+      const payload = {
+        format: BACKUP_FORMAT,
+        backupVersion: BACKUP_VERSION,
+        application: 'MJ',
+        applicationVersion: 71,
+        backupDateTime: new Date().toISOString(),
+        tables
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+      const stamp = new Date();
+      const pad = n => String(n).padStart(2, '0');
+      const filename = `MJ-Backup-${stamp.getFullYear()}-${pad(stamp.getMonth()+1)}-${pad(stamp.getDate())}-${pad(stamp.getHours())}${pad(stamp.getMinutes())}${pad(stamp.getSeconds())}.json`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      showMessage(`Database backup created.<br><br>${escapeHtml(filename)}<br><br>Stores: ${tables.stores.length}<br>Purchases: ${tables.purchases.length}<br>Products: ${tables.products.length}<br>System Lookup Codes: ${tables.lookupCodes.length}<br>Usages: ${tables.usages.length}`, [{label:'Close', action:displayList}]);
+    } catch (error) {
+      showMessage('The database backup could not be created.', [{label:'Close', action:displayList}]);
+    }
+  }
+
+  function validateBackupPayload(payload) {
+    if (!payload || typeof payload !== 'object' || payload.format !== BACKUP_FORMAT || Number(payload.backupVersion) !== BACKUP_VERSION) {
+      throw new Error('This is not a valid MJ database backup file.');
+    }
+    const tables = payload.tables;
+    if (!tables || typeof tables !== 'object') throw new Error('The backup does not contain the required tables.');
+    const required = ['stores','purchases','products','lookupCodes','usages'];
+    for (const name of required) {
+      if (!Array.isArray(tables[name])) throw new Error(`The backup is missing the ${name} table.`);
+      if (tables[name].some(r => !r || typeof r !== 'object' || Array.isArray(r))) throw new Error(`The ${name} table contains an invalid row.`);
+    }
+    const keySets = {};
+    for (const [cacheName, table] of Object.entries(IDB_TABLES)) {
+      const rows = tables[cacheName];
+      const seen = new Set();
+      for (const row of rows) {
+        const id = Number(row[table.key]);
+        if (!Number.isInteger(id) || id < 1) throw new Error(`${cacheName} contains an invalid ${table.key}.`);
+        if (seen.has(id)) throw new Error(`${cacheName} contains duplicate ${table.key} ${id}.`);
+        seen.add(id);
+      }
+      keySets[cacheName] = seen;
+    }
+    for (const row of tables.purchases) {
+      if (!keySets.stores.has(Number(row.StoreID))) throw new Error(`PurchaseID ${row.PurchaseID} references missing StoreID ${row.StoreID}.`);
+    }
+    for (const row of tables.products) {
+      if (!keySets.purchases.has(Number(row.PurchaseID))) throw new Error(`ProductID ${row.ProductID} references missing PurchaseID ${row.PurchaseID}.`);
+      if (!keySets.lookupCodes.has(Number(row.Category))) throw new Error(`ProductID ${row.ProductID} references missing Category lookup key ${row.Category}.`);
+      if (!keySets.lookupCodes.has(Number(row.InUse))) throw new Error(`ProductID ${row.ProductID} references missing InUse lookup key ${row.InUse}.`);
+    }
+    for (const row of tables.usages) {
+      if (!keySets.products.has(Number(row.ProductID))) throw new Error(`UsageID ${row.UsageID} references missing ProductID ${row.ProductID}.`);
+    }
+    return true;
+  }
+
+  async function restoreDatabaseFromFile(file) {
+    try {
+      const text = await file.text();
+      let payload;
+      try { payload = JSON.parse(text); } catch { throw new Error('The selected file is not valid JSON.'); }
+      validateBackupPayload(payload);
+      const t = payload.tables;
+      const summary = `Restore this MJ database backup?\n\nStores: ${t.stores.length}\nPurchases: ${t.purchases.length}\nProducts: ${t.products.length}\nSystem Lookup Codes: ${t.lookupCodes.length}\nUsages: ${t.usages.length}\n\nThis will replace all current MJ database data.`;
+      showMessage(summary, [
+        {label:'Yes', action:async () => {
+          try {
+            if (mjDB) {
+              await new Promise((resolve, reject) => {
+                const names = Object.values(IDB_TABLES).map(t => t.name);
+                const tx = mjDB.transaction(names, 'readwrite');
+                for (const [cacheName, table] of Object.entries(IDB_TABLES)) {
+                  const store = tx.objectStore(table.name);
+                  store.clear();
+                  for (const row of t[cacheName]) store.put(row);
+                }
+                tx.oncomplete = resolve;
+                tx.onerror = () => reject(tx.error || new Error('Unable to restore database.'));
+                tx.onabort = () => reject(tx.error || new Error('Unable to restore database.'));
+              });
+            }
+            for (const [cacheName, table] of Object.entries(IDB_TABLES)) {
+              dataCache[cacheName] = t[cacheName].map(r => ({...r}));
+              try { localStorage.setItem(table.localKey, JSON.stringify(dataCache[cacheName])); } catch {}
+            }
+            selectedStoreId = null;
+            selectedProductId = null;
+            selectedPurchaseId = null;
+            selectedUsageProductId = null;
+            selectedUsageId = null;
+            pendingPurchaseId = null;
+            pendingPurchaseStoreId = null;
+            pendingPurchaseDate = null;
+            showMessage('The MJ database has been restored successfully.', [{label:'Close', action:displayList}]);
+          } catch (error) {
+            showMessage('The restore could not be completed. The existing database was not changed by the restore transaction.', [{label:'Close', action:displayList}]);
+          }
+        }},
+        {label:'No', action:displayList}
+      ]);
+    } catch (error) {
+      showMessage(escapeHtml(error?.message || 'The selected backup could not be restored.'), [{label:'Close', action:displayList}]);
+    }
+  }
+
+  function restoreDatabase() {
+    closeActions();
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json,text/json';
+    input.style.display = 'none';
+    input.addEventListener('change', async () => {
+      const file = input.files && input.files[0];
+      input.remove();
+      if (!file) return;
+      await restoreDatabaseFromFile(file);
+    }, {once:true});
+    document.body.appendChild(input);
+    input.click();
+  }
+
   // Delete a Store and its complete dependent hierarchy in one IndexedDB
   // transaction.  This avoids leaving orphaned Purchase rows behind if the
   // three tables are updated separately.
@@ -1953,6 +2102,10 @@
         clearOperationalData();
       } else if (event.target.dataset.action === 'productsDump') {
         displayProductsDump();
+      } else if (event.target.dataset.action === 'backupDatabase') {
+        backupDatabase();
+      } else if (event.target.dataset.action === 'restoreDatabase') {
+        restoreDatabase();
       }
       else if (event.target.textContent === 'Export') {
         closeActions();
