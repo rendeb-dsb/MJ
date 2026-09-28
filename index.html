@@ -112,7 +112,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v82</div>
+    <div id="version" class="version">v83</div>
     <div id="screenTitle" class="screen-title">MJ - Usage</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
@@ -457,9 +457,9 @@
     return { product, purchase, store, storeName: store?.Name ?? '', productName: product.Product ?? '', thc: product.THC == null || product.THC === '' ? '' : `${Number(product.THC).toFixed(2)}%` };
   }
   function getAvailableInUseKey() {
-    const codes = getInUseOptions();
-    const available = codes.find(c => String(c.Value ?? '').trim().toUpperCase() === 'AVAILABLE');
-    return available ? Number(available.LookupCodeID) : 8;
+    // Usage screen requirement: Products In Use includes only Products whose
+    // stored InUse code is exactly 1.
+    return 1;
   }
   function getAvailableProducts() {
     const key = getAvailableInUseKey();
@@ -1637,7 +1637,7 @@
   function displayApplicationCodes() {
     closeActions();
     const previousScreen = activeScreen;
-    const rows = getLookupCodes();
+    const rows = getLookupCodes().slice().sort((a,b) => String(a.GroupCode ?? '').localeCompare(String(b.GroupCode ?? '')) || Number(a.Order) - Number(b.Order) || Number(a.LookupCodeID) - Number(b.LookupCodeID));
     const tableRows = rows.length ? rows.map(r => `<tr>
       <td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:center"><input type="radio" name="lookupSelect" value="${r.LookupCodeID}" ${Number(selectedLookupId)===Number(r.LookupCodeID)?'checked':''} aria-label="Select application code"></td>
       <td class="slc-code-col" style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(String(r.LookupCodeID ?? ''))}</td>
@@ -2211,7 +2211,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=82'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=83'));
   }
 </script>
 </body>
