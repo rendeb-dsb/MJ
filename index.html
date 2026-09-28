@@ -112,7 +112,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v85</div>
+    <div id="version" class="version">v86</div>
     <div id="screenTitle" class="screen-title">MJ - Usage</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
@@ -334,6 +334,13 @@
   // Return from the saved Purchase screen to its parent Purchase list.
   // The parent list shows the Store name and Purchase Date for each Purchase.
   function displayPurchaseParentList() {
+    // We are returning to the Purchase parent list.  Clear the transient
+    // Purchase/Product form state so a later Actions -> Change starts with
+    // the newly selected Purchase, rather than reopening the prior Product.
+    pendingPurchaseId = null;
+    pendingPurchaseStoreId = null;
+    pendingPurchaseDate = null;
+    selectedProductId = null;
     activeScreen = 'Purchases';
     buttons.forEach(b => b.classList.toggle('active', b.dataset.screen === 'Purchases'));
     title.textContent = 'MJ - Purchases';
@@ -2218,7 +2225,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=85'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=86'));
   }
 </script>
 </body>
