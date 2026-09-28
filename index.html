@@ -112,7 +112,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v79</div>
+    <div id="version" class="version">v80</div>
     <div id="screenTitle" class="screen-title">MJ - Usage</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
@@ -1871,7 +1871,7 @@
         format: BACKUP_FORMAT,
         backupVersion: BACKUP_VERSION,
         application: 'MJ',
-        applicationVersion: 72,
+        applicationVersion: 80,
         backupDateTime: new Date().toISOString(),
         tables
       };
@@ -2175,7 +2175,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=79'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=80'));
   }
 </script>
 </body>
