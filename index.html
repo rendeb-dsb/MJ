@@ -112,7 +112,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v87</div>
+    <div id="version" class="version">v88</div>
     <div id="screenTitle" class="screen-title">MJ - Usage</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
@@ -1276,6 +1276,26 @@
       if (n != null && !Number.isNaN(n)) weight.value=n.toFixed(2);
     });
 
+    // Selecting the Dummy Category automatically sets Product to Dummy and
+    // Strain to the ST lookup value whose displayed Value is n/a.  These are
+    // normal editable form values; the user may continue changing any field
+    // before pressing Save.
+    const categoryInput = document.getElementById('productCategoryInput');
+    const productInput = document.getElementById('productNameInput');
+    const strainInput = document.getElementById('productStrainInput');
+    const dummyCategory = categories.find(r => String(r.Value ?? '').trim().toLowerCase() === 'dummy');
+    const naStrain = strainOptions.find(r => String(r.Value ?? '').trim().toLowerCase() === 'n/a');
+    const applyDummyDefaults = () => {
+      const selectedCategory = categories.find(r => Number(r.LookupCodeID) === Number(categoryInput.value));
+      if (selectedCategory && String(selectedCategory.Value ?? '').trim().toLowerCase() === 'dummy') {
+        productInput.value = 'Dummy';
+        if (naStrain) strainInput.value = String(naStrain.ValueCode ?? '');
+      }
+    };
+    categoryInput.addEventListener('change', applyDummyDefaults);
+    // Also enforce the rule when opening Change on an existing Dummy product.
+    applyDummyDefaults();
+
     document.getElementById('productSaveButton').addEventListener('click', () => {
       const product = document.getElementById('productNameInput').value.trim();
       const costValue = parseCurrency(cost.value);
@@ -2225,7 +2245,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=87'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=88'));
   }
 </script>
 </body>
