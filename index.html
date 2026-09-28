@@ -112,7 +112,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v80</div>
+    <div id="version" class="version">v81</div>
     <div id="screenTitle" class="screen-title">MJ - Usage</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
@@ -367,12 +367,16 @@
         const code = lookupCodes.find(c => Number(c.LookupCodeID) === Number(value));
         return code?.Value ?? '';
       };
-      body = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:760px;table-layout:fixed"><colgroup><col style="width:42px"><col style="width:24%"><col style="width:31%"><col style="width:3.33%"><col style="width:5.33%"><col style="width:36.34%"></colgroup><thead><tr><th aria-label="Select" style="padding:10px;border-bottom:1px solid #d1d5db"></th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Date</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Store</th><th style="padding:10px;border-bottom:1px solid #d1d5db"></th><th style="padding:10px;border-bottom:1px solid #d1d5db"></th><th style="padding:10px;border-bottom:1px solid #d1d5db"></th></tr></thead><tbody>` + orderedPurchases.map(r => {
+      const strainName = value => {
+        const code = lookupCodes.find(c => String(c.GroupCode ?? '').trim().toUpperCase() === 'ST' && String(c.ValueCode ?? '') === String(value ?? ''));
+        return code?.Value ?? '';
+      };
+      body = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:860px;table-layout:fixed"><colgroup><col style="width:42px"><col style="width:24%"><col style="width:31%"><col style="width:3.33%"><col style="width:5.33%"><col style="width:36.34%"></colgroup><thead><tr><th aria-label="Select" style="padding:10px;border-bottom:1px solid #d1d5db"></th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Date</th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Store</th><th style="padding:10px;border-bottom:1px solid #d1d5db"></th><th style="padding:10px;border-bottom:1px solid #d1d5db"></th><th style="padding:10px;border-bottom:1px solid #d1d5db"></th></tr></thead><tbody>` + orderedPurchases.map(r => {
         const store = stores.find(st => Number(st.StoreID) === Number(r.StoreID));
         const pid = Number(r.PurchaseID);
         const rows = products.filter(pr => Number(pr.PurchaseID) === pid).sort((a,b) => Number(a.ProductID) - Number(b.ProductID));
         const productTable = rows.length
-          ? `<table style="width:100%;border-collapse:collapse;table-layout:fixed"><colgroup><col style="width:20%"><col style="width:12%"><col style="width:10%"><col style="width:6.25%"><col style="width:14%"><col style="width:18%"><col style="width:19.75%"></colgroup><thead><tr><th style="text-align:left;padding:7px 8px;font-weight:700">Category</th><th style="text-align:left;padding:7px 8px;font-weight:700">Product</th><th style="text-align:left;padding:7px 8px;font-weight:700">In Use</th><th style="text-align:left;padding:7px 8px;font-weight:700">Cost</th><th style="text-align:left;padding:7px 8px;font-weight:700;position:relative;left:35px">THC</th><th style="text-align:left;padding:7px 8px;font-weight:700">CBD</th><th style="text-align:left;padding:7px 8px;font-weight:700;position:relative;left:-60px">Weight</th></tr></thead><tbody>` + rows.map(pr => `<tr><td style="padding:6px 8px;vertical-align:top">${escapeHtml(String(categoryName(pr.Category) ?? ''))}</td><td style="padding:6px 8px;vertical-align:top">${escapeHtml(String(pr.Product ?? ''))}</td><td style="padding:6px 8px;vertical-align:top">${escapeHtml(String(inUseName(pr.InUse) ?? ''))}</td><td style="padding:6px 8px;vertical-align:top">${formatCurrency(pr.Cost)}</td><td style="padding:6px 8px;vertical-align:top;position:relative;left:35px">${pr.THC == null || pr.THC === '' ? '' : `${Number(pr.THC).toFixed(2)}%`}</td><td style="padding:6px 8px;vertical-align:top">${pr.CBD == null || pr.CBD === '' ? '' : `${Number(pr.CBD).toFixed(2)}%`}</td><td style="padding:6px 8px;vertical-align:top;position:relative;left:-60px">${pr.Weight == null || pr.Weight === '' ? '' : Number(pr.Weight).toFixed(2)}</td></tr>`).join('') + `</tbody></table>`
+          ? `<table style="width:100%;border-collapse:collapse;table-layout:fixed;min-width:900px"><colgroup><col style="width:18%"><col style="width:12%"><col style="width:9%"><col style="width:7%"><col style="width:12%"><col style="width:14%"><col style="width:13%"><col style="width:15%"></colgroup><thead><tr><th style="text-align:left;padding:7px 8px;font-weight:700">Category</th><th style="text-align:left;padding:7px 8px;font-weight:700">Product</th><th style="text-align:left;padding:7px 8px;font-weight:700">In Use</th><th style="text-align:left;padding:7px 8px;font-weight:700">Cost</th><th style="text-align:left;padding:7px 8px;font-weight:700">Strain</th><th style="text-align:left;padding:7px 8px;font-weight:700;position:relative;left:35px">THC</th><th style="text-align:left;padding:7px 8px;font-weight:700">CBD</th><th style="text-align:left;padding:7px 8px;font-weight:700;position:relative;left:-60px">Weight</th></tr></thead><tbody>` + rows.map(pr => `<tr><td style="padding:6px 8px;vertical-align:top">${escapeHtml(String(categoryName(pr.Category) ?? ''))}</td><td style="padding:6px 8px;vertical-align:top">${escapeHtml(String(pr.Product ?? ''))}</td><td style="padding:6px 8px;vertical-align:top">${escapeHtml(String(inUseName(pr.InUse) ?? ''))}</td><td style="padding:6px 8px;vertical-align:top">${formatCurrency(pr.Cost)}</td><td style="padding:6px 8px;vertical-align:top">${escapeHtml(String(strainName(pr.Strain) ?? ''))}</td><td style="padding:6px 8px;vertical-align:top;position:relative;left:35px">${pr.THC == null || pr.THC === '' ? '' : `${Number(pr.THC).toFixed(2)}%`}</td><td style="padding:6px 8px;vertical-align:top">${pr.CBD == null || pr.CBD === '' ? '' : `${Number(pr.CBD).toFixed(2)}%`}</td><td style="padding:6px 8px;vertical-align:top;position:relative;left:-60px">${pr.Weight == null || pr.Weight === '' ? '' : Number(pr.Weight).toFixed(2)}</td></tr>`).join('') + `</tbody></table>`
           : '';
         return `<tr><td style="padding:10px;border-bottom:0;text-align:center;vertical-align:top"><input type="radio" name="purchaseSelect" value="${pid}" ${Number(selectedPurchaseId) === pid ? 'checked' : ''} aria-label="Select purchase"></td><td style="padding:10px;border-bottom:0;vertical-align:top">${escapeHtml(String(r.PurchDate ?? ''))}</td><td style="padding:10px;border-bottom:0;vertical-align:top">${escapeHtml(String(store?.Name ?? ''))}</td><td style="padding:10px;border-bottom:0"></td><td style="padding:10px;border-bottom:0"></td><td style="padding:10px;border-bottom:0"></td></tr><tr><td style="padding:0;border-bottom:1px solid #e5e7eb"></td><td colspan="5" style="padding:0 8px 10px 0;border-bottom:1px solid #e5e7eb;vertical-align:top">${productTable}</td></tr>`;
       }).join('') + '</tbody></table></div>';
@@ -1118,6 +1122,17 @@
       .sort((a,b) => Number(a.Order) - Number(b.Order) || Number(a.LookupCodeID) - Number(b.LookupCodeID));
   }
 
+  function getStrainOptions() {
+    return getLookupCodes()
+      .filter(r => String(r.GroupCode ?? '').trim().toUpperCase() === 'ST')
+      .sort((a,b) => Number(a.Order) - Number(b.Order) || Number(a.LookupCodeID) - Number(b.LookupCodeID));
+  }
+
+  function strainName(value) {
+    const match = getLookupCodes().find(r => String(r.GroupCode ?? '').trim().toUpperCase() === 'ST' && String(r.ValueCode ?? '') === String(value ?? ''));
+    return match ? String(match.Value ?? '') : '';
+  }
+
   function inUseName(value) {
     const codes = getLookupCodes().filter(c => String(c.GroupCode ?? '').trim().toUpperCase() === 'IU');
     const match = codes.find(c => Number(c.LookupCodeID) === Number(value));
@@ -1135,6 +1150,7 @@
         CBD: (r.CBD === '' || r.CBD == null) ? null : Number(r.CBD),
         Weight: (r.Weight === '' || r.Weight == null) ? null : Number(r.Weight),
         Category: r.Category ?? r.CategoryID ?? null,
+        Strain: r.Strain == null ? '' : String(r.Strain),
         InUse: Number.isFinite(Number(r.InUse)) ? Number(r.InUse) : 0
       };
       return out;
@@ -1178,17 +1194,22 @@
     const existingProduct = isChangeProduct ? getProducts().find(r => Number(r.ProductID) === Number(selectedProductId)) : null;
     if (isChangeProduct && !existingProduct) { showMessage('Select a Purchased Product before choosing Change.', [{label:'Close', action:()=>{}}]); return; }
     const categories = getCategoryOptions();
+    const strainOptions = getStrainOptions();
     const inUseOptions = getInUseOptions();
     mainContent.innerHTML = `
       <section class="content-card">
         <div class="form-area">
           <h2 class="form-title">${isChangeProduct ? 'Change Product Purchased' : 'Add Product Purchased'}</h2>
           <div class="form-row"><span class="form-label">Product</span><span class="form-colon">:</span><input class="form-input" id="productNameInput" type="text" aria-label="Product" value="${escapeHtml(String(existingProduct?.Product ?? ''))}"></div>
-          <div class="form-row"><span class="form-label">Cost</span><span class="form-colon">:</span><input class="form-input currency-input" id="productCostInput" type="text" inputmode="decimal" aria-label="Cost" placeholder="$0.00" value="${existingProduct ? escapeHtml(formatCurrency(existingProduct.Cost)) : ''}"></div>
           <div class="form-row"><span class="form-label">Category</span><span class="form-colon">:</span><select class="form-input" id="productCategoryInput" aria-label="Category">
             <option value="">${categories.length ? 'Select Category' : 'No Categories available'}</option>
             ${categories.map(r => `<option value="${Number(r.LookupCodeID)}" ${existingProduct && Number(existingProduct.Category) === Number(r.LookupCodeID) ? 'selected' : ''}>${escapeHtml(String(r.Value ?? ''))}</option>`).join('')}
           </select></div>
+          <div class="form-row"><span class="form-label">Strain</span><span class="form-colon">:</span><select class="form-input" id="productStrainInput" aria-label="Strain">
+            <option value="">${strainOptions.length ? 'Select Strain' : 'No Strain Codes available'}</option>
+            ${strainOptions.map(r => `<option value="${escapeHtml(String(r.ValueCode ?? ''))}" ${existingProduct && String(existingProduct.Strain ?? '') === String(r.ValueCode ?? '') ? 'selected' : ''}>${escapeHtml(String(r.Value ?? ''))}</option>`).join('')}
+          </select></div>
+          <div class="form-row"><span class="form-label">Cost</span><span class="form-colon">:</span><input class="form-input currency-input" id="productCostInput" type="text" inputmode="decimal" aria-label="Cost" placeholder="$0.00" value="${existingProduct ? escapeHtml(formatCurrency(existingProduct.Cost)) : ''}"></div>
           <div class="percentage-row">
             <div class="percentage-field"><span class="form-label">% THC</span><span class="form-colon">:</span><input class="percentage-input" id="productThcInput" type="text" inputmode="decimal" maxlength="6" aria-label="% THC" value="${existingProduct?.THC == null ? '' : escapeHtml(String(existingProduct.THC))}"></div>
             <div class="percentage-field"><span class="form-label">% CBD</span><span class="form-colon">:</span><input class="percentage-input" id="productCbdInput" type="text" inputmode="decimal" maxlength="6" aria-label="% CBD" value="${existingProduct?.CBD == null ? '' : escapeHtml(String(existingProduct.CBD))}"></div>
@@ -1236,6 +1257,7 @@
       const cbdValue = validatePercentage(cbd.value);
       const weightValue = validateWeight(weight.value);
       const categoryValue = document.getElementById('productCategoryInput').value;
+      const strainValue = document.getElementById('productStrainInput').value;
       if (!product) { showMessage('Product is required.'); return; }
       if (costValue == null || Number.isNaN(costValue)) { showMessage('Cost is required and must be a valid currency amount.'); return; }
       if (Number.isNaN(thcValue)) { showMessage('% THC must be a number from 0 to 100.00.'); return; }
@@ -1249,14 +1271,14 @@
         if (!inUseValue) { showMessage('In Use is required.'); return; }
         const index = rows.findIndex(r => Number(r.ProductID) === Number(existingProduct.ProductID));
         if (index < 0) { showMessage('The selected Purchased Product could not be found.', [{label:'Close', action:()=>displayAddForm('add')}]); return; }
-        rows[index] = {...rows[index], Product:product, Cost:costValue, THC:thcValue, CBD:cbdValue, Weight:weightValue, Category:Number(categoryValue), InUse:Number(inUseValue)};
+        rows[index] = {...rows[index], Product:product, Cost:costValue, THC:thcValue, CBD:cbdValue, Weight:weightValue, Category:Number(categoryValue), Strain:String(strainValue || ''), InUse:Number(inUseValue)};
         saveProducts(rows);
         selectedProductId = Number(existingProduct.ProductID);
         displayAddForm('change');
         return;
       }
       const nextId=rows.reduce((m,r)=>Math.max(m,Number(r.ProductID)||0),0)+1;
-      rows.push({ProductID:nextId, PurchaseID:Number(pendingPurchaseId), Product:product, Cost:costValue, THC:thcValue, CBD:cbdValue, Weight:weightValue, Category:Number(categoryValue), InUse:8});
+      rows.push({ProductID:nextId, PurchaseID:Number(pendingPurchaseId), Product:product, Cost:costValue, THC:thcValue, CBD:cbdValue, Weight:weightValue, Category:Number(categoryValue), Strain:String(strainValue || ''), InUse:8});
       saveProducts(rows);
       selectedProductId = nextId;
       displayAddForm('add');
@@ -1812,13 +1834,14 @@
             <td>${escapeHtml(String(r.PurchaseID ?? ''))}</td>
             <td>${escapeHtml(String(r.Product ?? ''))}</td>
             <td>${escapeHtml(String(r.Category ?? ''))}</td>
+            <td>${escapeHtml(String(r.Strain ?? ''))}</td>
             <td>${escapeHtml(String(r.Cost ?? ''))}</td>
             <td>${escapeHtml(String(r.THC ?? ''))}</td>
             <td>${escapeHtml(String(r.CBD ?? ''))}</td>
             <td>${escapeHtml(String(r.Weight ?? ''))}</td>
             <td>${escapeHtml(String(r.InUse ?? ''))}</td>
           </tr>`).join('')
-        : `<tr><td colspan="9" style="text-align:center">No Products records found.</td></tr>`;
+        : `<tr><td colspan="10" style="text-align:center">No Products records found.</td></tr>`;
 
       mainContent.innerHTML = `
         <section class="content-card integrity-card">
@@ -1827,7 +1850,7 @@
           <div class="integrity-table-wrap">
             <table>
               <thead><tr>
-                <th>ProductID</th><th>PurchaseID</th><th>Product</th><th>Category</th>
+                <th>ProductID</th><th>PurchaseID</th><th>Product</th><th>Category</th><th>Strain</th>
                 <th>Cost</th><th>THC</th><th>CBD</th><th>Weight</th><th>InUse</th>
               </tr></thead>
               <tbody>${rows}</tbody>
@@ -1871,7 +1894,7 @@
         format: BACKUP_FORMAT,
         backupVersion: BACKUP_VERSION,
         application: 'MJ',
-        applicationVersion: 80,
+        applicationVersion: 81,
         backupDateTime: new Date().toISOString(),
         tables
       };
@@ -1905,7 +1928,7 @@
       if (tables[name].some(r => !r || typeof r !== 'object' || Array.isArray(r))) throw new Error(`The ${name} table contains an invalid row.`);
     }
     // Backups created before Weight was introduced remain restorable; missing Weight is treated as blank.
-    tables.products = tables.products.map(r => ({...r, Weight: (r.Weight === '' || r.Weight == null) ? null : Number(r.Weight)}));
+    tables.products = tables.products.map(r => ({...r, Strain: r.Strain == null ? '' : String(r.Strain), Weight: (r.Weight === '' || r.Weight == null) ? null : Number(r.Weight)}));
     const keySets = {};
     for (const [cacheName, table] of Object.entries(IDB_TABLES)) {
       const rows = tables[cacheName];
@@ -1925,6 +1948,7 @@
       if (!keySets.purchases.has(Number(row.PurchaseID))) throw new Error(`ProductID ${row.ProductID} references missing PurchaseID ${row.PurchaseID}.`);
       if (!keySets.lookupCodes.has(Number(row.Category))) throw new Error(`ProductID ${row.ProductID} references missing Category lookup key ${row.Category}.`);
       if (!keySets.lookupCodes.has(Number(row.InUse))) throw new Error(`ProductID ${row.ProductID} references missing InUse lookup key ${row.InUse}.`);
+      if (row.Strain !== '' && !tables.lookupCodes.some(c => String(c.GroupCode ?? '').trim().toUpperCase() === 'ST' && String(c.ValueCode ?? '') === String(row.Strain))) throw new Error(`ProductID ${row.ProductID} references missing Strain ValueCode ${row.Strain}.`);
       if (row.Weight !== null && row.Weight !== '' && (!Number.isFinite(Number(row.Weight)) || Number(row.Weight) < 0 || Number(row.Weight) > 9.99)) throw new Error(`ProductID ${row.ProductID} contains an invalid Weight value ${row.Weight}.`);
     }
     for (const row of tables.usages) {
@@ -2175,7 +2199,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=80'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=81'));
   }
 </script>
 </body>

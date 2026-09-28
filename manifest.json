@@ -1,10 +1,10 @@
 {
   "name": "MJ",
   "short_name": "MJ",
-  "start_url": "./?v=80",
+  "start_url": "./?v=81",
   "display": "standalone",
   "background_color": "#f9fafb",
   "theme_color": "#1f2937",
   "orientation": "any",
-  "version": "80"
+  "version": "81"
 }
