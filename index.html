@@ -112,7 +112,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v93</div>
+    <div id="version" class="version">v94</div>
     <div id="screenTitle" class="screen-title">MJ - Usage</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
@@ -157,6 +157,7 @@
   let pendingPurchaseStoreId = null;
   let pendingPurchaseId = null;
   let pendingPurchaseDate = null;
+  let pendingPurchaseRecept = null;
   let selectedUsageProductId = null;
   let selectedUsageId = null;
 
@@ -340,6 +341,7 @@
     pendingPurchaseId = null;
     pendingPurchaseStoreId = null;
     pendingPurchaseDate = null;
+    pendingPurchaseRecept = null;
     selectedProductId = null;
     activeScreen = 'Purchases';
     buttons.forEach(b => b.classList.toggle('active', b.dataset.screen === 'Purchases'));
@@ -668,13 +670,16 @@
         pendingPurchaseId = originalPurchaseId;
         pendingPurchaseStoreId = Number(changePurchaseRow.StoreID);
         pendingPurchaseDate = changePurchaseRow.PurchDate || '';
+        pendingPurchaseRecept = String(changePurchaseRow.Recept ?? '');
         selectedPurchaseId = originalPurchaseId;
       } else if (!preservePurchase) {
         pendingPurchaseStoreId = null;
         pendingPurchaseDate = null;
+        pendingPurchaseRecept = null;
       } else if (purchaseRow) {
         pendingPurchaseStoreId = Number(purchaseRow.StoreID);
         pendingPurchaseDate = purchaseRow.PurchDate || pendingPurchaseDate;
+        pendingPurchaseRecept = String(purchaseRow.Recept ?? '');
       }
       const displayDate = pendingPurchaseDate || defaultDate;
 
@@ -699,6 +704,10 @@
             <div class="form-row">
               <span class="form-label">Date</span><span class="form-colon">:</span>
               <input class="form-input purchase-date" type="text" inputmode="numeric" maxlength="10" aria-label="Date" value="${escapeHtml(displayDate)}">
+            </div>
+            <div class="form-row">
+              <span class="form-label">Recept</span><span class="form-colon">:</span>
+              <input class="form-input purchase-recept" type="text" aria-label="Recept" maxlength="255" value="${escapeHtml(String(pendingPurchaseRecept ?? ''))}" placeholder="File name">
             </div>
             <div class="purchase-adjusters">
               <button type="button" class="small-button" id="purchasePlus" aria-label="Plus" ${(preservePurchase || isChangePurchase) ? '' : 'disabled'}>+</button>
@@ -735,7 +744,7 @@
 
       document.getElementById('saveButton').disabled = false;
       document.getElementById('saveButton').removeAttribute('aria-disabled');
-      document.getElementById('cancelButton').addEventListener('click', () => { pendingPurchaseId = null; pendingPurchaseStoreId = null; pendingPurchaseDate = null; selectedProductId = null; displayList(); });
+      document.getElementById('cancelButton').addEventListener('click', () => { pendingPurchaseId = null; pendingPurchaseStoreId = null; pendingPurchaseDate = null; pendingPurchaseRecept = null; selectedProductId = null; displayList(); });
       document.getElementById('purchasePlus').addEventListener('click', () => { if (pendingPurchaseId != null) displayAddProductForm(); });
       const renderPurchaseProductRows = () => {
         const body = document.getElementById('purchaseProductBody');
@@ -798,12 +807,14 @@
         pendingPurchaseId = null;
         pendingPurchaseStoreId = null;
         pendingPurchaseDate = null;
+        pendingPurchaseRecept = null;
         selectedProductId = null;
         displayPurchaseParentList();
       };
 
       const saveChangedPurchase = () => {
         const date = document.querySelector('.purchase-date')?.value.trim() || '';
+        const recept = document.querySelector('.purchase-recept')?.value.trim() || '';
         if (!isValidPurchaseDate(date)) {
           showMessage('Enter a valid date before saving.', [{label:'Close', action:()=>{}}]);
           return;
@@ -821,6 +832,7 @@
               pendingPurchaseId = Number(first.PurchaseID);
               pendingPurchaseStoreId = storeId;
               pendingPurchaseDate = String(first.PurchDate || date);
+              pendingPurchaseRecept = String(first.Recept ?? '');
               selectedPurchaseId = pendingPurchaseId;
               selectedProductId = null;
               renderPurchaseProductRows();
@@ -831,9 +843,11 @@
               minus.style.display = hasProducts ? '' : 'none';
               minus.disabled = !hasProducts;
               dateInput.value = pendingPurchaseDate;
+              const receptInput = document.querySelector('.purchase-recept');
+              if (receptInput) receptInput.value = pendingPurchaseRecept || '';
             }},
             {label:'Cancel', action:() => {
-              pendingPurchaseId = null; pendingPurchaseStoreId = null; pendingPurchaseDate = null; selectedProductId = null;
+              pendingPurchaseId = null; pendingPurchaseStoreId = null; pendingPurchaseDate = null; pendingPurchaseRecept = null; selectedProductId = null;
               displayPurchaseParentList();
             }}
           ]);
@@ -843,8 +857,10 @@
         const idx = rows.findIndex(r => Number(r.PurchaseID) === currentId);
         if (idx < 0) { showMessage('The selected Purchase record could not be found.', [{label:'Close', action:displayPurchaseParentList}]); return; }
         rows[idx].PurchDate = date;
+        rows[idx].Recept = recept;
         savePurchases(rows);
         pendingPurchaseDate = date;
+        pendingPurchaseRecept = recept;
         selectedPurchaseId = currentId;
         displayPurchaseParentList();
       };
@@ -893,8 +909,11 @@
         const firstPurchase = matchingPurchases[0];
         pendingPurchaseStoreId = storeId;
         pendingPurchaseDate = date;
+        pendingPurchaseRecept = String(firstPurchase.Recept ?? '');
         pendingPurchaseId = Number(firstPurchase.PurchaseID);
         selectedPurchaseId = pendingPurchaseId;
+        const receptInput = document.querySelector('.purchase-recept');
+        if (receptInput) receptInput.value = pendingPurchaseRecept;
         selectedProductId = null;
         renderPurchaseProductRows();
         plus.disabled = false;
@@ -910,6 +929,7 @@
       const saveNewPurchase = () => {
         const selectedStore = storeSelectValue();
         const date = document.querySelector('.purchase-date').value.trim();
+        const recept = document.querySelector('.purchase-recept')?.value.trim() || '';
         if (!selectedStore) {
           showMessage('Select a Store before saving.', [{label:'Close', action:()=>{}}]);
           return;
@@ -928,12 +948,16 @@
           const firstPurchase = matchingPurchases[0];
           pendingPurchaseStoreId = storeId;
           pendingPurchaseDate = date;
+          pendingPurchaseRecept = recept;
           pendingPurchaseId = Number(firstPurchase.PurchaseID);
           selectedPurchaseId = pendingPurchaseId;
+          const updated = getPurchases().map(r => Number(r.PurchaseID) === pendingPurchaseId ? {...r, Recept: recept} : {...r});
+          savePurchases(updated);
         } else {
           pendingPurchaseStoreId = storeId;
           pendingPurchaseDate = date;
-          pendingPurchaseId = addPurchaseRecord(pendingPurchaseStoreId, pendingPurchaseDate);
+          pendingPurchaseRecept = recept;
+          pendingPurchaseId = addPurchaseRecord(pendingPurchaseStoreId, pendingPurchaseDate, recept);
           selectedPurchaseId = pendingPurchaseId;
         }
 
@@ -1000,7 +1024,7 @@
                   minus.disabled = !hasProducts;
                 }},
                 {label:'Cancel', action:() => {
-                  pendingPurchaseId = null; pendingPurchaseStoreId = null; pendingPurchaseDate = null; selectedProductId = null;
+                  pendingPurchaseId = null; pendingPurchaseStoreId = null; pendingPurchaseDate = null; pendingPurchaseRecept = null; selectedProductId = null;
                   displayPurchaseParentList();
                 }}
               ]);
@@ -1385,10 +1409,10 @@
   function getPurchases() { return dataCache.purchases || []; }
   function savePurchases(rows) { persistTable('purchases', rows); }
 
-  function addPurchaseRecord(storeId, purchDate) {
+  function addPurchaseRecord(storeId, purchDate, recept = '') {
     const rows = getPurchases().map(r => ({...r}));
     const nextId = rows.reduce((m,r) => Math.max(m, Number(r.PurchaseID) || 0), 0) + 1;
-    rows.push({PurchaseID: nextId, StoreID: Number(storeId), PurchDate: purchDate});
+    rows.push({PurchaseID: nextId, StoreID: Number(storeId), PurchDate: purchDate, Recept: String(recept ?? '')});
     savePurchases(rows);
     return nextId;
   }
@@ -1408,8 +1432,8 @@
 
   function exportPurchasesCsv() {
     const rows = getPurchases();
-    const headers = ['PurchaseID','StoreID','PurchDate'];
-    const csv = [headers, ...rows.map(r => [r.PurchaseID ?? '', r.StoreID ?? '', r.PurchDate ?? ''])]
+    const headers = ['PurchaseID','StoreID','PurchDate','Recept'];
+    const csv = [headers, ...rows.map(r => [r.PurchaseID ?? '', r.StoreID ?? '', r.PurchDate ?? '', r.Recept ?? ''])]
       .map(row => row.map(csvEscape).join(',')).join('\r\n');
     const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
     const url = URL.createObjectURL(blob);
@@ -1477,7 +1501,8 @@
         if (!/^\d{2}\/\d{2}\/\d{4}$/.test(date)) {
           showCsvImportError(i + 1, line, 'PurchDate', date, 'PurchDate must be in mm/dd/yyyy format.'); return;
         }
-        imported.push({PurchaseID:id, StoreID:storeId, PurchDate:date});
+        const recept = index.Recept == null ? '' : String(line[index.Recept] ?? '').trim();
+        imported.push({PurchaseID:id, StoreID:storeId, PurchDate:date, Recept:recept});
       }
       savePurchases(imported);
       displayList();
@@ -2006,7 +2031,7 @@
         format: BACKUP_FORMAT,
         backupVersion: BACKUP_VERSION,
         application: 'MJ',
-        applicationVersion: 81,
+        applicationVersion: 94,
         backupDateTime: new Date().toISOString(),
         tables
       };
@@ -2041,6 +2066,7 @@
     }
     // Backups created before Weight was introduced remain restorable; missing Weight is treated as blank.
     tables.products = tables.products.map(r => ({...r, Strain: r.Strain == null ? '' : String(r.Strain), Weight: (r.Weight === '' || r.Weight == null) ? null : Number(r.Weight)}));
+    tables.purchases = tables.purchases.map(r => ({...r, Recept: r.Recept == null ? '' : String(r.Recept)}));
     const keySets = {};
     for (const [cacheName, table] of Object.entries(IDB_TABLES)) {
       const rows = tables[cacheName];
@@ -2247,7 +2273,7 @@
   actionsMenu.addEventListener('click', event => {
     event.stopPropagation();
     if (event.target.matches('button')) {
-      if (event.target.dataset.action === 'add') { if (activeScreen === 'Usage') { displayUsageForm('add'); } else { pendingPurchaseId = null; pendingPurchaseStoreId = null; pendingPurchaseDate = null; selectedProductId = null; displayAddForm('add'); } }
+      if (event.target.dataset.action === 'add') { if (activeScreen === 'Usage') { displayUsageForm('add'); } else { pendingPurchaseId = null; pendingPurchaseStoreId = null; pendingPurchaseDate = null; pendingPurchaseRecept = null; selectedProductId = null; displayAddForm('add'); } }
       else if (event.target.dataset.action === 'change') {
         if (activeScreen === 'Usage') { displayUsageForm('change'); }
         else if (activeScreen === 'Purchases') {
@@ -2311,7 +2337,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=93'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=94'));
   }
 </script>
 </body>
