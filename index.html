@@ -112,7 +112,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v94</div>
+    <div id="version" class="version">v95</div>
     <div id="screenTitle" class="screen-title">MJ - Usage</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
@@ -393,7 +393,16 @@
     } else {
       body = `<div class="empty-message">No ${activeScreen.toLowerCase()} records have been added yet.</div><div class="demo-space">Scrollable content area for the ${activeScreen} list.</div>`;
     }
-    mainContent.innerHTML = `<section class="content-card"><div class="content-heading">${activeScreen}</div>${body}</section>`;
+    const grandPurchaseTotal = activeScreen === 'Purchases'
+      ? getProducts().reduce((sum, r) => {
+          const cost = Number(r.Cost);
+          return sum + (Number.isFinite(cost) ? cost : 0);
+        }, 0)
+      : 0;
+    const purchasesSummary = activeScreen === 'Purchases'
+      ? `<div class="grand-purchase-total" style="display:flex;justify-content:space-between;align-items:center;padding:10px 32px 12px;border-bottom:1px solid #d1d5db;font-size:20px"><span>Grand Total of all Purchases:&nbsp;</span><strong>${formatCurrency(grandPurchaseTotal)}</strong></div>`
+      : '';
+    mainContent.innerHTML = `<section class="content-card"><div class="content-heading">${activeScreen}</div>${purchasesSummary}${body}</section>`;
   }
 
   function escapeHtml(value) {
@@ -2337,7 +2346,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=94'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=95'));
   }
 </script>
 </body>
