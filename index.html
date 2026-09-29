@@ -112,7 +112,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v88</div>
+    <div id="version" class="version">v89</div>
     <div id="screenTitle" class="screen-title">MJ - Usage</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
@@ -1138,13 +1138,13 @@
 
   function getCategoryOptions() {
     return getLookupCodes()
-      .filter(r => String(r.GroupCode ?? '').toUpperCase().includes('CA'))
+      .filter(r => String(r.GroupCode ?? '').trim().toUpperCase() === 'CA')
       .sort((a,b) => Number(a.Order) - Number(b.Order) || Number(a.LookupCodeID) - Number(b.LookupCodeID));
   }
 
   function getInUseOptions() {
     return getLookupCodes()
-      .filter(r => String(r.GroupCode ?? '').toUpperCase().includes('IU'))
+      .filter(r => String(r.GroupCode ?? '').trim().toUpperCase() === 'IU')
       .sort((a,b) => Number(a.Order) - Number(b.Order) || Number(a.LookupCodeID) - Number(b.LookupCodeID));
   }
 
@@ -1644,7 +1644,30 @@
       if (!/^[A-Z0-9]{1,5}$/.test(valueCode)) { showMessage('Value Code must contain only uppercase letters and numbers.'); return; }
       const rows=getLookupCodes();
       const currentId = isChange ? Number(record.LookupCodeID) : null;
-      const duplicateOrder = rows.some(r => Number(r.LookupCodeID) !== currentId && String(r.GroupCode || '').toUpperCase() === group && Number(r.Order) === Number(orderText));
+      const requestedOrder = Number(orderText);
+      const sameGroupRows = rows.filter(r => String(r.GroupCode || '').trim().toUpperCase() === group);
+      const duplicateOrder = sameGroupRows.some(r => Number(r.LookupCodeID) !== currentId && Number(r.Order) === requestedOrder);
+      if (duplicateOrder && !isChange) {
+        showMessage(`Order value ${requestedOrder} already exists for this Group Code value ${group}.<br><br>Do you want to re-order this Group Code?`, [
+          {label:'Yes', action:() => {
+            // Make room at the requested position by moving the existing records
+            // at and after that position down one slot, then insert the new record.
+            const currentRows = getLookupCodes();
+            currentRows.forEach(r => {
+              if (String(r.GroupCode || '').trim().toUpperCase() === group && Number(r.Order) >= requestedOrder) {
+                r.Order = Number(r.Order) + 1;
+              }
+            });
+            const nextId=currentRows.reduce((m,r)=>Math.max(m,Number(r.LookupCodeID)||0),0)+1;
+            currentRows.push({LookupCodeID:nextId, GroupCode:group, Order:requestedOrder, ValueCode:valueCode, Value:value});
+            saveLookupCodes(currentRows);
+            selectedLookupId=nextId;
+            displayApplicationCodes();
+          }},
+          {label:'No', action:()=>{ /* leave the Add screen in place so Order can be changed */ }}
+        ]);
+        return;
+      }
       if (duplicateOrder) { showMessage('Order must be unique within the supplied Group Code.'); return; }
       const duplicateValueCode = rows.some(r => Number(r.LookupCodeID) !== currentId && String(r.GroupCode || '').toUpperCase() === group && String(r.ValueCode || '').toUpperCase() === valueCode);
       if (duplicateValueCode) { showMessage('Value Code must be unique within the supplied Group Code.'); return; }
@@ -2245,7 +2268,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=88'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=89'));
   }
 </script>
 </body>
