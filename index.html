@@ -107,15 +107,36 @@
     .integrity-table-wrap th { font-weight:700; background:#f3f4f6; position:sticky; top:0; }
     .integrity-none { padding:10px 0; }
     .integrity-footer { display:flex; justify-content:center; margin-top:20px; padding-top:14px; border-top:1px solid #d1d5db; }
-    /* Keep the Purchases Date and Store headers visible while the page scrolls.
+    /* Purchases header: keep Date and Store in their original row, then
+       let the whole header row stick to the viewport when the list scrolls.
        The app header occupies 93px (58px title row + 35px menu row). */
-    .purchases-sticky-header { position:sticky !important; top:93px; z-index:20; background:white; }
+    .purchases-sticky-bar {
+      position:sticky;
+      top:93px;
+      z-index:20;
+      background:white;
+      border-bottom:1px solid #d1d5db;
+    }
+    .purchases-sticky-bar table {
+      width:100%;
+      min-width:860px;
+      table-layout:fixed;
+      border-collapse:collapse;
+    }
+    .purchases-sticky-bar th {
+      text-align:left;
+      padding:10px;
+      font-weight:700;
+      border:0;
+    }
+    .purchases-sticky-bar .store-header { position:relative; left:-75px; }
+    .purchases-card { overflow:visible; }
 </style>
 </head>
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v104</div>
+    <div id="version" class="version">v105</div>
     <div id="screenTitle" class="screen-title">MJ - Usage</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
@@ -383,7 +404,8 @@
         const code = lookupCodes.find(c => String(c.GroupCode ?? '').trim().toUpperCase() === 'ST' && String(c.ValueCode ?? '') === String(value ?? ''));
         return code?.Value ?? '';
       };
-      body = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:860px;table-layout:fixed"><colgroup><col style="width:42px"><col style="width:24%"><col style="width:31%"><col style="width:3.33%"><col style="width:5.33%"><col style="width:36.34%"></colgroup><thead><tr><th aria-label="Select" style="padding:10px;border-bottom:1px solid #d1d5db"></th><th class="purchases-sticky-header" style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Date</th><th class="purchases-sticky-header" style="text-align:left;padding:10px 10px 10px 10px;border-bottom:1px solid #d1d5db;position:relative;left:-75px">Store</th><th style="padding:10px;border-bottom:1px solid #d1d5db"></th><th style="padding:10px;border-bottom:1px solid #d1d5db"></th><th style="padding:10px;border-bottom:1px solid #d1d5db"></th></tr></thead><tbody>` + orderedPurchases.map(r => {
+      const purchasesHeader = `<div class="purchases-sticky-bar" aria-label="Purchase list headers"><table><colgroup><col style="width:42px"><col style="width:24%"><col style="width:31%"><col style="width:3.33%"><col style="width:5.33%"><col style="width:36.34%"></colgroup><thead><tr><th aria-hidden="true"></th><th>Date</th><th class="store-header">Store</th><th aria-hidden="true"></th><th aria-hidden="true"></th><th aria-hidden="true"></th></tr></thead></table></div>`;
+      body = purchasesHeader + `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:860px;table-layout:fixed"><colgroup><col style="width:42px"><col style="width:24%"><col style="width:31%"><col style="width:3.33%"><col style="width:5.33%"><col style="width:36.34%"></colgroup><thead style="display:none"><tr><th aria-label="Select"></th><th>Date</th><th>Store</th><th></th><th></th><th></th></tr></thead><tbody>` + orderedPurchases.map(r => {
         const store = stores.find(st => Number(st.StoreID) === Number(r.StoreID));
         const pid = Number(r.PurchaseID);
         const rows = products.filter(pr => Number(pr.PurchaseID) === pid).sort((a,b) => Number(a.ProductID) - Number(b.ProductID));
@@ -406,7 +428,7 @@
     const purchasesSummary = activeScreen === 'Purchases'
       ? `<div class="grand-purchase-total" style="display:flex;align-items:center;justify-content:flex-start;gap:18px;padding:10px 10px 12px;border-bottom:1px solid #d1d5db;font-size:20px;text-align:left"><span style="text-align:left">Grand Total:</span><strong style="text-align:left">${formatCurrency(grandPurchaseTotal)}</strong></div>`
       : '';
-    mainContent.innerHTML = `<section class="content-card"><div class="content-heading">${activeScreen}</div>${purchasesSummary}${body}</section>`;
+    mainContent.innerHTML = `<section class="content-card${activeScreen === 'Purchases' ? ' purchases-card' : ''}"><div class="content-heading">${activeScreen}</div>${purchasesSummary}${body}</section>`;
   }
 
   function escapeHtml(value) {
@@ -2350,7 +2372,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=104'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=105'));
   }
 </script>
 </body>
