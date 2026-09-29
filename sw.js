@@ -1,4 +1,4 @@
-const CACHE = 'mj-pwa-v89';
+const CACHE = 'mj-pwa-v91';
 const ASSETS = ['./', './index.html', './manifest.json'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting()));

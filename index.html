@@ -112,7 +112,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v89</div>
+    <div id="version" class="version">v91</div>
     <div id="screenTitle" class="screen-title">MJ - Usage</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
@@ -688,7 +688,12 @@
               <span class="form-label">Store</span><span class="form-colon">:</span>
               <select class="form-input purchase-store" aria-label="Store" ${isChangePurchase || !orderedStores.length ? 'disabled' : ''}>
                 <option value="">${orderedStores.length ? 'Select Store' : 'No Stores available'}</option>
-                ${orderedStores.map(store => `<option value="${Number(store.StoreID)}" ${Number(pendingPurchaseStoreId) === Number(store.StoreID) ? 'selected' : ''}>${escapeHtml(String(store.Name ?? ''))}</option>`).join('')}
+                ${orderedStores.map(store => {
+                  const storeName = String(store.Name ?? '');
+                  const city = String(store.City ?? '').trim();
+                  const optionText = city ? `${storeName} - ${city}` : storeName;
+                  return `<option value="${Number(store.StoreID)}" ${Number(pendingPurchaseStoreId) === Number(store.StoreID) ? 'selected' : ''}>${escapeHtml(optionText)}</option>`;
+                }).join('')}
               </select>
             </div>
             <div class="form-row">
@@ -1647,28 +1652,61 @@
       const requestedOrder = Number(orderText);
       const sameGroupRows = rows.filter(r => String(r.GroupCode || '').trim().toUpperCase() === group);
       const duplicateOrder = sameGroupRows.some(r => Number(r.LookupCodeID) !== currentId && Number(r.Order) === requestedOrder);
-      if (duplicateOrder && !isChange) {
+      if (duplicateOrder) {
         showMessage(`Order value ${requestedOrder} already exists for this Group Code value ${group}.<br><br>Do you want to re-order this Group Code?`, [
           {label:'Yes', action:() => {
-            // Make room at the requested position by moving the existing records
-            // at and after that position down one slot, then insert the new record.
-            const currentRows = getLookupCodes();
-            currentRows.forEach(r => {
-              if (String(r.GroupCode || '').trim().toUpperCase() === group && Number(r.Order) >= requestedOrder) {
-                r.Order = Number(r.Order) + 1;
+            const currentRows = getLookupCodes().map(r => ({...r}));
+            const groupKey = group;
+            if (isChange) {
+              const id = Number(record.LookupCodeID);
+              const currentIndex = currentRows.findIndex(r => Number(r.LookupCodeID) === id);
+              if (currentIndex < 0) { selectedLookupId = null; displayApplicationCodes(); return; }
+              const oldGroup = String(currentRows[currentIndex].GroupCode || '').trim().toUpperCase();
+              const oldOrder = Number(currentRows[currentIndex].Order);
+              const movingRecord = {...currentRows[currentIndex], GroupCode:groupKey, Order:requestedOrder, ValueCode:valueCode, Value:value};
+
+              // Remove the record from its old position first.  If it remains in
+              // the same group, close the gap that its old Order created.
+              currentRows.splice(currentIndex, 1);
+              if (oldGroup === groupKey) {
+                currentRows.forEach(r => {
+                  if (String(r.GroupCode || '').trim().toUpperCase() === groupKey && Number(r.Order) > oldOrder) {
+                    r.Order = Number(r.Order) - 1;
+                  }
+                });
               }
-            });
-            const nextId=currentRows.reduce((m,r)=>Math.max(m,Number(r.LookupCodeID)||0),0)+1;
-            currentRows.push({LookupCodeID:nextId, GroupCode:group, Order:requestedOrder, ValueCode:valueCode, Value:value});
-            saveLookupCodes(currentRows);
-            selectedLookupId=nextId;
-            displayApplicationCodes();
+
+              // Make room at the requested position, then place the changed
+              // record there.  This keeps the GroupCode ordered by Order.
+              currentRows.forEach(r => {
+                if (String(r.GroupCode || '').trim().toUpperCase() === groupKey && Number(r.Order) >= requestedOrder) {
+                  r.Order = Number(r.Order) + 1;
+                }
+              });
+              currentRows.push(movingRecord);
+              saveLookupCodes(currentRows);
+              selectedLookupId=id;
+              displayApplicationCodes();
+            } else {
+              // Make room at the requested position by moving the existing
+              // records at and after that position down one slot, then insert
+              // the new record.
+              currentRows.forEach(r => {
+                if (String(r.GroupCode || '').trim().toUpperCase() === groupKey && Number(r.Order) >= requestedOrder) {
+                  r.Order = Number(r.Order) + 1;
+                }
+              });
+              const nextId=currentRows.reduce((m,r)=>Math.max(m,Number(r.LookupCodeID)||0),0)+1;
+              currentRows.push({LookupCodeID:nextId, GroupCode:groupKey, Order:requestedOrder, ValueCode:valueCode, Value:value});
+              saveLookupCodes(currentRows);
+              selectedLookupId=nextId;
+              displayApplicationCodes();
+            }
           }},
-          {label:'No', action:()=>{ /* leave the Add screen in place so Order can be changed */ }}
+          {label:'No', action:()=>{ /* remain on the current form so Order can be changed */ }}
         ]);
         return;
       }
-      if (duplicateOrder) { showMessage('Order must be unique within the supplied Group Code.'); return; }
       const duplicateValueCode = rows.some(r => Number(r.LookupCodeID) !== currentId && String(r.GroupCode || '').toUpperCase() === group && String(r.ValueCode || '').toUpperCase() === valueCode);
       if (duplicateValueCode) { showMessage('Value Code must be unique within the supplied Group Code.'); return; }
       if (isChange) {
@@ -2268,7 +2306,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=89'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=91'));
   }
 </script>
 </body>
