@@ -112,7 +112,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v95</div>
+    <div id="version" class="version">v96</div>
     <div id="screenTitle" class="screen-title">MJ - Usage</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
@@ -400,7 +400,7 @@
         }, 0)
       : 0;
     const purchasesSummary = activeScreen === 'Purchases'
-      ? `<div class="grand-purchase-total" style="display:flex;justify-content:space-between;align-items:center;padding:10px 32px 12px;border-bottom:1px solid #d1d5db;font-size:20px"><span>Grand Total of all Purchases:&nbsp;</span><strong>${formatCurrency(grandPurchaseTotal)}</strong></div>`
+      ? `<div class="grand-purchase-total" style="display:flex;justify-content:space-between;align-items:center;padding:10px 32px 12px;border-bottom:1px solid #d1d5db;font-size:20px"><span>Grand Total:&nbsp;</span><strong>${formatCurrency(grandPurchaseTotal)}</strong></div>`
       : '';
     mainContent.innerHTML = `<section class="content-card"><div class="content-heading">${activeScreen}</div>${purchasesSummary}${body}</section>`;
   }
