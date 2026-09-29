@@ -112,7 +112,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v92</div>
+    <div id="version" class="version">v93</div>
     <div id="screenTitle" class="screen-title">MJ - Usage</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
@@ -711,20 +711,20 @@
                 <thead><tr>
                   <th aria-label="Select" style="width:42px;padding:10px;border-bottom:1px solid #d1d5db"></th>
                   <th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Product</th>
-                  <th style="width:120px;text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Cost</th>
+                  <th style="width:120px;text-align:right;padding:10px;border-bottom:1px solid #d1d5db">Cost</th>
                 </tr></thead>
                 <tbody id="purchaseProductBody">${(() => {
                   const productRows = preservePurchase
                     ? getProductsForPurchaseGroup(pendingPurchaseStoreId, pendingPurchaseDate)
                     : [];
                   if (!productRows.length) return '<tr><td colspan="3" class="empty-message" style="padding:28px 10px">No products have been added.</td></tr>';
-                  return productRows.map(r => `<tr><td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:center"><input type="radio" name="productSelect" value="${Number(r.ProductID)}" ${Number(selectedProductId) === Number(r.ProductID) ? 'checked' : ''} aria-label="Select purchased product"></td><td style="padding:10px;border-bottom:1px solid #e5e7eb;vertical-align:top">${escapeHtml(String(r.Product ?? ''))}</td><td style="width:120px;padding:10px;border-bottom:1px solid #e5e7eb;vertical-align:top">${formatCurrency(r.Cost)}</td></tr>`).join('');
+                  return productRows.map(r => `<tr><td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:center"><input type="radio" name="productSelect" value="${Number(r.ProductID)}" ${Number(selectedProductId) === Number(r.ProductID) ? 'checked' : ''} aria-label="Select purchased product"></td><td style="padding:10px;border-bottom:1px solid #e5e7eb;vertical-align:top">${escapeHtml(String(r.Product ?? ''))}</td><td style="width:120px;padding:10px;border-bottom:1px solid #e5e7eb;vertical-align:top;text-align:right">${formatCurrency(r.Cost)}</td></tr>`).join('');
                 })()}</tbody>
               </table>
             </div>
-            <div class="purchase-products-total" style="display:flex;justify-content:space-between;align-items:center;padding:10px 10px 0;font-weight:700">
-              <span>Total</span>
-              <span>${formatCurrency((preservePurchase ? getProductsForPurchaseGroup(pendingPurchaseStoreId, pendingPurchaseDate) : []).reduce((sum, r) => sum + (Number.isFinite(Number(r.Cost)) ? Number(r.Cost) : 0), 0))}</span>
+            <div class="purchase-products-total" style="display:grid;grid-template-columns:minmax(0,1fr) 120px;align-items:center;padding:10px 10px 0;font-weight:700">
+              <span style="text-align:right;padding-right:20px">Total</span>
+              <span style="width:120px;text-align:right">${formatCurrency((preservePurchase ? getProductsForPurchaseGroup(pendingPurchaseStoreId, pendingPurchaseDate) : []).reduce((sum, r) => sum + (Number.isFinite(Number(r.Cost)) ? Number(r.Cost) : 0), 0))}</span>
             </div>
             <div class="form-actions">
               <button class="form-button save" id="saveButton">Save</button>
@@ -1251,7 +1251,7 @@
             <div class="percentage-field"><span class="form-label">% CBD</span><span class="form-colon">:</span><input class="percentage-input" id="productCbdInput" type="text" inputmode="decimal" maxlength="6" aria-label="% CBD" value="${existingProduct?.CBD == null ? '' : escapeHtml(String(existingProduct.CBD))}"></div>
             <div class="percentage-field"><span class="form-label">Grams</span><span class="form-colon">:</span><input class="percentage-input weight-input" id="productWeightInput" type="text" inputmode="decimal" maxlength="4" aria-label="Grams" placeholder="_.00" value="${existingProduct?.Weight == null ? '' : escapeHtml(Number(existingProduct.Weight).toFixed(2))}"></div>
           </div>
-          ${isChangeProduct ? `<div class="form-row"><span class="form-label">In Use</span><span class="form-colon">:</span><select class="form-input" id="productInUseInput" aria-label="In Use"><option value="">${inUseOptions.length ? 'Select In Use' : 'No In Use Codes available'}</option>${inUseOptions.map(r => `<option value="${Number(r.LookupCodeID)}" ${existingProduct && Number(existingProduct.InUse) === Number(r.LookupCodeID) ? 'selected' : ''}>${escapeHtml(String(r.Value ?? ''))}</option>`).join('')}</select></div>` : ''}
+          <div class="form-row"><span class="form-label">In Use</span><span class="form-colon">:</span><select class="form-input" id="productInUseInput" aria-label="In Use"><option value="">${inUseOptions.length ? 'Select In Use' : 'No In Use Codes available'}</option>${inUseOptions.map(r => { const isUsedDefault = !isChangeProduct && String(r.Value ?? '').trim().toLowerCase() === 'used'; const isSelected = existingProduct ? Number(existingProduct.InUse) === Number(r.LookupCodeID) : isUsedDefault; return `<option value="${Number(r.LookupCodeID)}" ${isSelected ? 'selected' : ''}>${escapeHtml(String(r.Value ?? ''))}</option>`; }).join('')}</select></div>
           <div class="form-actions"><button class="form-button save" id="productSaveButton">Save</button><button class="form-button cancel" id="productCancelButton">Cancel</button></div>
         </div>
       </section>`;
@@ -1320,11 +1320,11 @@
       if (Number.isNaN(cbdValue)) { showMessage('% CBD must be a number from 0 to 100.00.'); return; }
       if (Number.isNaN(weightValue)) { showMessage('Grams must be a number from 0.00 to 9.99.'); return; }
       if (!categoryValue) { showMessage('Category is required.'); return; }
+      const inUseValue = document.getElementById('productInUseInput')?.value;
+      if (!inUseValue) { showMessage('In Use is required.'); return; }
       const rows=getProducts().slice();
       if (pendingPurchaseId == null) { showMessage('Save the Purchase before adding a Product.', [{label:'Close', action:()=>{}}]); return; }
       if (isChangeProduct) {
-        const inUseValue = document.getElementById('productInUseInput')?.value;
-        if (!inUseValue) { showMessage('In Use is required.'); return; }
         const index = rows.findIndex(r => Number(r.ProductID) === Number(existingProduct.ProductID));
         if (index < 0) { showMessage('The selected Purchased Product could not be found.', [{label:'Close', action:()=>displayAddForm('add')}]); return; }
         rows[index] = {...rows[index], Product:product, Cost:costValue, THC:thcValue, CBD:cbdValue, Weight:weightValue, Category:Number(categoryValue), Strain:String(strainValue || ''), InUse:Number(inUseValue)};
@@ -1334,7 +1334,7 @@
         return;
       }
       const nextId=rows.reduce((m,r)=>Math.max(m,Number(r.ProductID)||0),0)+1;
-      rows.push({ProductID:nextId, PurchaseID:Number(pendingPurchaseId), Product:product, Cost:costValue, THC:thcValue, CBD:cbdValue, Weight:weightValue, Category:Number(categoryValue), Strain:String(strainValue || ''), InUse:8});
+      rows.push({ProductID:nextId, PurchaseID:Number(pendingPurchaseId), Product:product, Cost:costValue, THC:thcValue, CBD:cbdValue, Weight:weightValue, Category:Number(categoryValue), Strain:String(strainValue || ''), InUse:Number(inUseValue)});
       saveProducts(rows);
       selectedProductId = nextId;
       displayAddForm('add');
@@ -2311,7 +2311,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=91'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=93'));
   }
 </script>
 </body>
