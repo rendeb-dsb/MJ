@@ -107,12 +107,15 @@
     .integrity-table-wrap th { font-weight:700; background:#f3f4f6; position:sticky; top:0; }
     .integrity-none { padding:10px 0; }
     .integrity-footer { display:flex; justify-content:center; margin-top:20px; padding-top:14px; border-top:1px solid #d1d5db; }
+    /* Keep the Purchases Date and Store headers visible while the page scrolls.
+       The app header occupies 93px (58px title row + 35px menu row). */
+    .purchases-sticky-header { position:sticky !important; top:93px; z-index:20; background:white; }
 </style>
 </head>
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v103</div>
+    <div id="version" class="version">v104</div>
     <div id="screenTitle" class="screen-title">MJ - Usage</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
@@ -380,7 +383,7 @@
         const code = lookupCodes.find(c => String(c.GroupCode ?? '').trim().toUpperCase() === 'ST' && String(c.ValueCode ?? '') === String(value ?? ''));
         return code?.Value ?? '';
       };
-      body = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:860px;table-layout:fixed"><colgroup><col style="width:42px"><col style="width:24%"><col style="width:31%"><col style="width:3.33%"><col style="width:5.33%"><col style="width:36.34%"></colgroup><thead><tr><th aria-label="Select" style="padding:10px;border-bottom:1px solid #d1d5db"></th><th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Date</th><th style="text-align:left;padding:10px 10px 10px 10px;border-bottom:1px solid #d1d5db;position:relative;left:-75px">Store</th><th style="padding:10px;border-bottom:1px solid #d1d5db"></th><th style="padding:10px;border-bottom:1px solid #d1d5db"></th><th style="padding:10px;border-bottom:1px solid #d1d5db"></th></tr></thead><tbody>` + orderedPurchases.map(r => {
+      body = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:860px;table-layout:fixed"><colgroup><col style="width:42px"><col style="width:24%"><col style="width:31%"><col style="width:3.33%"><col style="width:5.33%"><col style="width:36.34%"></colgroup><thead><tr><th aria-label="Select" style="padding:10px;border-bottom:1px solid #d1d5db"></th><th class="purchases-sticky-header" style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Date</th><th class="purchases-sticky-header" style="text-align:left;padding:10px 10px 10px 10px;border-bottom:1px solid #d1d5db;position:relative;left:-75px">Store</th><th style="padding:10px;border-bottom:1px solid #d1d5db"></th><th style="padding:10px;border-bottom:1px solid #d1d5db"></th><th style="padding:10px;border-bottom:1px solid #d1d5db"></th></tr></thead><tbody>` + orderedPurchases.map(r => {
         const store = stores.find(st => Number(st.StoreID) === Number(r.StoreID));
         const pid = Number(r.PurchaseID);
         const rows = products.filter(pr => Number(pr.PurchaseID) === pid).sort((a,b) => Number(a.ProductID) - Number(b.ProductID));
@@ -2347,7 +2350,7 @@
   initPersistence().then(() => displayList());
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=103'));
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js?v=104'));
   }
 </script>
 </body>
