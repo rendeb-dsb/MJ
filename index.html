@@ -112,7 +112,7 @@
 <body>
 <header class="app-header">
   <div class="title-row">
-    <div id="version" class="version">v91</div>
+    <div id="version" class="version">v92</div>
     <div id="screenTitle" class="screen-title">MJ - Usage</div>
     <button class="gear-button" id="gearButton" aria-label="System Lookup Codes" title="System Lookup Codes">⚙</button>
   </div>
@@ -707,19 +707,24 @@
             </div>
             <h2 class="form-title purchase-section-title">Purchased Products</h2>
             <div class="purchase-product-list">
-              <table style="width:100%;border-collapse:collapse">
+              <table style="width:100%;border-collapse:collapse;table-layout:fixed">
                 <thead><tr>
                   <th aria-label="Select" style="width:42px;padding:10px;border-bottom:1px solid #d1d5db"></th>
                   <th style="text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Product</th>
+                  <th style="width:120px;text-align:left;padding:10px;border-bottom:1px solid #d1d5db">Cost</th>
                 </tr></thead>
                 <tbody id="purchaseProductBody">${(() => {
                   const productRows = preservePurchase
                     ? getProductsForPurchaseGroup(pendingPurchaseStoreId, pendingPurchaseDate)
                     : [];
-                  if (!productRows.length) return '<tr><td colspan="2" class="empty-message" style="padding:28px 10px">No products have been added.</td></tr>';
-                  return productRows.map(r => `<tr><td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:center"><input type="radio" name="productSelect" value="${Number(r.ProductID)}" ${Number(selectedProductId) === Number(r.ProductID) ? 'checked' : ''} aria-label="Select purchased product"></td><td style="padding:10px;border-bottom:1px solid #e5e7eb">${escapeHtml(String(r.Product ?? ''))}</td></tr>`).join('');
+                  if (!productRows.length) return '<tr><td colspan="3" class="empty-message" style="padding:28px 10px">No products have been added.</td></tr>';
+                  return productRows.map(r => `<tr><td style="padding:10px;border-bottom:1px solid #e5e7eb;text-align:center"><input type="radio" name="productSelect" value="${Number(r.ProductID)}" ${Number(selectedProductId) === Number(r.ProductID) ? 'checked' : ''} aria-label="Select purchased product"></td><td style="padding:10px;border-bottom:1px solid #e5e7eb;vertical-align:top">${escapeHtml(String(r.Product ?? ''))}</td><td style="width:120px;padding:10px;border-bottom:1px solid #e5e7eb;vertical-align:top">${formatCurrency(r.Cost)}</td></tr>`).join('');
                 })()}</tbody>
               </table>
+            </div>
+            <div class="purchase-products-total" style="display:flex;justify-content:space-between;align-items:center;padding:10px 10px 0;font-weight:700">
+              <span>Total</span>
+              <span>${formatCurrency((preservePurchase ? getProductsForPurchaseGroup(pendingPurchaseStoreId, pendingPurchaseDate) : []).reduce((sum, r) => sum + (Number.isFinite(Number(r.Cost)) ? Number(r.Cost) : 0), 0))}</span>
             </div>
             <div class="form-actions">
               <button class="form-button save" id="saveButton">Save</button>
